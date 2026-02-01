@@ -1,0 +1,6 @@
+@SmartSheetLicenceApi_HostAddress = http://localhost:5189
+
+GET {{SmartSheetLicenceApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
