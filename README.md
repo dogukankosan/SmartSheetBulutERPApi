@@ -5,6 +5,9 @@
 ![Issues](https://img.shields.io/github/issues/dogukankosan/SmartSheetBulutERPApi)
 ![Last Commit](https://img.shields.io/github/last-commit/dogukankosan/SmartSheetBulutERPApi)
 
+<img width="1271" height="761" alt="DD" src="https://github.com/user-attachments/assets/072d2832-2fc8-4c2b-a0f5-64c3ed07eef7" />
+
+
 > **SmartSheetBulutERPApi**, Logo Bulut ERP sisteminden fatura verilerini otomatik olarak çekerek Smartsheet platformuna aktaran, lisans bazlı çalışan bir masaüstü C#/.NET entegrasyon uygulamasıdır.
 
 ---
