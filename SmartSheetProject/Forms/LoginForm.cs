@@ -107,7 +107,6 @@ namespace SmartSheetProject.Forms
                         savedLicense.LicenseKey,
                         apiResponse.CompanyName,
                         apiResponse.ExpiryDate);
-                    await TextLog.LogToSQLiteAsync($"✅ Lisans doğrulandı: {savedLicense.LicenseKey}");
                     return true;
                 }
                 else

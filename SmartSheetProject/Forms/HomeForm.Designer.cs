@@ -45,6 +45,7 @@
             this.accordionControlElementBulutERPAyarlari = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.accordionControlElementTemaAyarlari = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.accordionControlElementError = new DevExpress.XtraBars.Navigation.AccordionControlElement();
+            this.sqliteAccordionElement = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.accordionControlSeparator1 = new DevExpress.XtraBars.Navigation.AccordionControlSeparator();
             this.accordionControlElementHakkimizda = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.fluentDesignFormControl1 = new DevExpress.XtraBars.FluentDesignSystem.FluentDesignFormControl();
@@ -57,7 +58,6 @@
             this.barDockControlBottom = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlLeft = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlRight = new DevExpress.XtraBars.BarDockControl();
-            this.sqliteAccordionElement = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.fluentDesignFormContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.panelControlMain)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.accordionControl1)).BeginInit();
@@ -134,7 +134,7 @@
             // 
             this.accordionControlElementVeriCek.Name = "accordionControlElementVeriCek";
             this.accordionControlElementVeriCek.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
-            this.accordionControlElementVeriCek.Text = "Çok Yakında... :)";
+            this.accordionControlElementVeriCek.Text = "Expenses";
             this.accordionControlElementVeriCek.Click += new System.EventHandler(this.accordionControlElementVeriCek_Click);
             // 
             // accordionControlSeparator2
@@ -181,6 +181,13 @@
             this.accordionControlElementError.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
             this.accordionControlElementError.Text = "Hata Kayıtları";
             this.accordionControlElementError.Click += new System.EventHandler(this.accordionControlElementError_Click);
+            // 
+            // sqliteAccordionElement
+            // 
+            this.sqliteAccordionElement.Name = "sqliteAccordionElement";
+            this.sqliteAccordionElement.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
+            this.sqliteAccordionElement.Text = "SQLite Ayarları";
+            this.sqliteAccordionElement.Click += new System.EventHandler(this.sqliteAccordionElement_Click);
             // 
             // accordionControlSeparator1
             // 
@@ -278,13 +285,6 @@
             this.barDockControlRight.Location = new System.Drawing.Point(1200, 31);
             this.barDockControlRight.Manager = this.barManager1;
             this.barDockControlRight.Size = new System.Drawing.Size(0, 669);
-            // 
-            // sqliteAccordionElement
-            // 
-            this.sqliteAccordionElement.Name = "sqliteAccordionElement";
-            this.sqliteAccordionElement.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
-            this.sqliteAccordionElement.Text = "SQLite Ayarları";
-            this.sqliteAccordionElement.Click += new System.EventHandler(this.sqliteAccordionElement_Click);
             // 
             // HomeForm
             // 

@@ -133,6 +133,12 @@
     <Compile Include="Forms\AboutForm.Designer.cs">
       <DependentUpon>AboutForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\BulutERPInvoice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\BulutERPInvoice.Designer.cs">
+      <DependentUpon>BulutERPInvoice.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\BulutERPSettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -188,12 +194,17 @@
       <DependentUpon>SQLiteForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Models\BulutERPSettings.cs" />
+    <Compile Include="Models\ExpenseModel.cs" />
     <Compile Include="Models\GelirFaturaModel.cs" />
     <Compile Include="Models\GiderFaturaModel.cs" />
+    <Compile Include="Models\GroupedExpenseModel.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Forms\AboutForm.resx">
       <DependentUpon>AboutForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\BulutERPInvoice.resx">
+      <DependentUpon>BulutERPInvoice.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\BulutERPSettingsForm.resx">
       <DependentUpon>BulutERPSettingsForm.cs</DependentUpon>

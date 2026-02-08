@@ -12,7 +12,7 @@ namespace SmartSheetProject.Models
         public DateTime? TARIHI { get; set; }
         public string FATURA_ACIKLAMASI { get; set; }
         public DateTime? FATURA_VADE_TARIHI { get; set; }
-        public int VADE_KALAN_GUN { get; set; }
+      //  public int VADE_KALAN_GUN { get; set; }
         public decimal KUR { get; set; }
         public string PARA_BIRIMI { get; set; }
         public decimal CARI_BAKIYESI { get; set; }

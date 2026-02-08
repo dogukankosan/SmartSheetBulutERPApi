@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Text;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -119,7 +116,7 @@ namespace SmartSheetProject.Forms
                 DateTime bitisTarihi = dateBitis.EditValue != null
                     ? Convert.ToDateTime(dateBitis.EditValue).Date
                     : DateTime.Now.Date;
-                string sqlQuery = "SELECT INV.LOGICALREF AS FATURALOGICALREF, ARP.CODE AS CARI_KODU, ARP.DESCRIPTION AS CARI_ACIKLAMASI, INV.AUXCODE AS PROJE_KODU, INV.SLIPNR AS FATURA_NO, INV.SLIPDATE::DATE AS TARIHI, INV.GENEXP AS FATURA_ACIKLAMASI, INV.SLIPDATE::DATE + COALESCE(PAY.PAYDAY::INTEGER, 0) AS FATURA_VADE_TARIHI, GREATEST(0, (INV.SLIPDATE::DATE + COALESCE(PAY.PAYDAY::INTEGER, 0)) - CURRENT_DATE) AS VADE_KALAN_GUN, ROUND(MAX(MMT.TCRATE)::NUMERIC, 4) AS KUR, CASE WHEN INV.TCTYPE = 0 THEN 'TL' WHEN INV.TCTYPE = 1 THEN 'USD' WHEN INV.TCTYPE = 20 THEN 'EURO' ELSE 'KONTROL_EDILECEK' END AS PARA_BIRIMI, COALESCE((SELECT SUM(CASE WHEN ARPTRN.TRANSSIGN=0 THEN ARPTRN.AMOUNT ELSE -ARPTRN.AMOUNT END) FROM U_$V(firm)_01_ARPTRANS ARPTRN WHERE  ARPTRN.ARPREF=ARP.LOGICALREF AND ARPTRN.TRANSDATE <= INV.SLIPDATE AND ARPTRN.MODULENR IN (3,4,5,6,7,8,9,15,17) AND ARPTRN.NOTEFFECTSTOTALS=0 AND ARPTRN.BOSTATUS IN (1,2)),0) AS CARI_BAKIYESI, ROUND(INV.NETTOTAL::NUMERIC, 2) AS FATURA_TOPLAM_TUTAR_TL, ROUND(INV.TCNET::NUMERIC, 2) AS FATURA_TOPLAM_TUTAR_ID, ROUND(INV.GROSSTOTAL::NUMERIC, 2) AS FATURA_KDVSIZ_TUTAR, ROUND(INV.TOTALVAT::NUMERIC, 2) AS KDV_TUTARI, STRING_AGG(ITM.CODE || ' - ' || ITM.DESCRIPTION || ' - Miktar: ' || ROUND(MMT.QUANTITY::NUMERIC, 2) || ' ' || COALESCE(UNT.CODE, '') || ' - Fiyat: ' || ROUND(MMT.PRICE::NUMERIC, 2) || ' TL - Toplam: ' || ROUND(MMT.TOTAL::NUMERIC, 2) || ' TL', ' | ') AS MALZEME_BILGILERI FROM U_$V(firm)_01_INVOICES INV LEFT JOIN U_$V(firm)_01_MMTRANS MMT ON MMT.INVOICEREF = INV.LOGICALREF LEFT JOIN U_$V(firm)_ITEMS ITM ON ITM.LOGICALREF = MMT.ITEMREF LEFT JOIN U_$V(firm)_UNITS UNT ON UNT.LOGICALREF = MMT.UOMREF LEFT JOIN U_$V(firm)_ARPS ARP ON ARP.LOGICALREF = MMT.ARPREF LEFT JOIN U_$V(firm)_PAYPLANLNS PAY ON PAY.LOGICALREF = INV.PAYPLANREF WHERE  INV.SLIPTYPE IN (6,7,8,9,22) AND INV.SLIPDATE::DATE >= '" + baslangicTarihi.ToString("yyyy-MM-dd") + "' AND INV.SLIPDATE::DATE <= '" + bitisTarihi.ToString("yyyy-MM-dd") + "' GROUP BY INV.LOGICALREF, ARP.CODE, ARP.DESCRIPTION, ARP.LOGICALREF, INV.AUXCODE, INV.SLIPNR, INV.SLIPDATE, INV.GENEXP, PAY.PAYDAY, INV.NETTOTAL, INV.TCNET, INV.GROSSTOTAL, INV.TOTALVAT, INV.TCTYPE ORDER BY INV.SLIPDATE DESC";
+                string sqlQuery = "SELECT INV.LOGICALREF AS FATURALOGICALREF, ARP.CODE AS CARI_KODU, ARP.DESCRIPTION AS CARI_ACIKLAMASI, INV.AUXCODE AS PROJE_KODU, INV.SLIPNR AS FATURA_NO, INV.SLIPDATE::DATE AS TARIHI, INV.GENEXP AS FATURA_ACIKLAMASI, INV.SLIPDATE::DATE + COALESCE(PAY.PAYDAY::INTEGER, 0) AS FATURA_VADE_TARIHI, ROUND(MAX(MMT.TCRATE)::NUMERIC, 4) AS KUR, CASE WHEN INV.TCTYPE = 0 THEN 'TL' WHEN INV.TCTYPE = 1 THEN 'USD' WHEN INV.TCTYPE = 20 THEN 'EURO' ELSE 'KONTROL_EDILECEK' END AS PARA_BIRIMI, COALESCE((SELECT SUM(CASE WHEN ARPTRN.TRANSSIGN=0 THEN ARPTRN.AMOUNT ELSE -ARPTRN.AMOUNT END) FROM U_$V(firm)_01_ARPTRANS ARPTRN WHERE  ARPTRN.ARPREF=ARP.LOGICALREF AND ARPTRN.TRANSDATE <= INV.SLIPDATE AND ARPTRN.MODULENR IN (3,4,5,6,7,8,9,15,17) AND ARPTRN.NOTEFFECTSTOTALS=0 AND ARPTRN.BOSTATUS IN (1,2)),0) AS CARI_BAKIYESI, ROUND(INV.NETTOTAL::NUMERIC, 2) AS FATURA_TOPLAM_TUTAR_TL, ROUND(INV.TCNET::NUMERIC, 2) AS FATURA_TOPLAM_TUTAR_ID, ROUND(INV.GROSSTOTAL::NUMERIC, 2) AS FATURA_KDVSIZ_TUTAR, ROUND(INV.TOTALVAT::NUMERIC, 2) AS KDV_TUTARI, STRING_AGG(ITM.CODE || ' - ' || ITM.DESCRIPTION || ' - Miktar: ' || ROUND(MMT.QUANTITY::NUMERIC, 2) || ' ' || COALESCE(UNT.CODE, '') || ' - Fiyat: ' || ROUND(MMT.PRICE::NUMERIC, 2) || ' TL - Toplam: ' || ROUND(MMT.TOTAL::NUMERIC, 2) || ' TL', ' | ') AS MALZEME_BILGILERI FROM U_$V(firm)_01_INVOICES INV LEFT JOIN U_$V(firm)_01_MMTRANS MMT ON MMT.INVOICEREF = INV.LOGICALREF LEFT JOIN U_$V(firm)_ITEMS ITM ON ITM.LOGICALREF = MMT.ITEMREF LEFT JOIN U_$V(firm)_UNITS UNT ON UNT.LOGICALREF = MMT.UOMREF LEFT JOIN U_$V(firm)_ARPS ARP ON ARP.LOGICALREF = MMT.ARPREF LEFT JOIN U_$V(firm)_PAYPLANLNS PAY ON PAY.LOGICALREF = INV.PAYPLANREF WHERE  INV.SLIPTYPE IN (6,7,8,9,22) AND INV.SLIPDATE::DATE >= '" + baslangicTarihi.ToString("yyyy-MM-dd") + "' AND INV.SLIPDATE::DATE <= '" + bitisTarihi.ToString("yyyy-MM-dd") + "' GROUP BY INV.LOGICALREF, ARP.CODE, ARP.DESCRIPTION, ARP.LOGICALREF, INV.AUXCODE, INV.SLIPNR, INV.SLIPDATE, INV.GENEXP, PAY.PAYDAY, INV.NETTOTAL, INV.TCNET, INV.GROSSTOTAL, INV.TOTALVAT, INV.TCTYPE ORDER BY INV.SLIPDATE DESC";
                 var result = await BulutERPService.ExecuteSelectQueryAsync(sqlQuery, tokenResult.AccessToken, 10000);
                 if (!result.Success)
                 {
@@ -196,7 +193,7 @@ namespace SmartSheetProject.Forms
                         FATURA_NO = dict.ContainsKey("FATURA_NO") ? dict["FATURA_NO"]?.ToString() : "",
                         TARIHI = dict.ContainsKey("TARIHI") && dict["TARIHI"] != null ? Convert.ToDateTime(dict["TARIHI"]) : (DateTime?)null,
                         FATURA_VADE_TARIHI = dict.ContainsKey("FATURA_VADE_TARIHI") && dict["FATURA_VADE_TARIHI"] != null ? Convert.ToDateTime(dict["FATURA_VADE_TARIHI"]) : (DateTime?)null,
-                        VADE_KALAN_GUN = dict.ContainsKey("VADE_KALAN_GUN") ? Convert.ToInt32(dict["VADE_KALAN_GUN"]) : 0,
+                     //   VADE_KALAN_GUN = dict.ContainsKey("VADE_KALAN_GUN") ? Convert.ToInt32(dict["VADE_KALAN_GUN"]) : 0,
                         CARI_KODU = dict.ContainsKey("CARI_KODU") ? dict["CARI_KODU"]?.ToString() : "",
                         CARI_ACIKLAMASI = dict.ContainsKey("CARI_ACIKLAMASI") ? dict["CARI_ACIKLAMASI"]?.ToString() : "",
                         CARI_BAKIYESI = dict.ContainsKey("CARI_BAKIYESI") ? Convert.ToDecimal(dict["CARI_BAKIYESI"]) : 0,
@@ -227,18 +224,18 @@ namespace SmartSheetProject.Forms
                 ("FATURA_NO", "Fatura No", 1, 150),
                 ("TARIHI", "Tarih", 2, 100),
                 ("FATURA_VADE_TARIHI", "Vade Tarihi", 3, 100),
-                ("VADE_KALAN_GUN", "Kalan Gün", 4, 80),
-                ("CARI_KODU", "Cari Kodu", 5, 120),
-                ("CARI_ACIKLAMASI", "Cari Adı", 6, 200),
-                ("PROJE_KODU", "Proje", 7, 120),
-                ("PARA_BIRIMI", "Para Birimi", 8, 80),
-                ("KUR", "Kur", 9, 80),
-                ("FATURA_KDVSIZ_TUTAR", "KDV'siz Tutar", 10, 120),
-                ("KDV_TUTARI", "KDV", 11, 100),
-                ("FATURA_TOPLAM_TUTAR_TL", "Toplam (TL)", 12, 120),
-                ("FATURA_TOPLAM_TUTAR_ID", "Toplam (ID)", 13, 120),
-                ("FATURA_ACIKLAMASI", "Fatura Açıklaması", 14, 250),
-                ("MALZEME_BILGILERI", "Malzeme Bilgileri", 15, 400)
+               // ("VADE_KALAN_GUN", "Kalan Gün", 4, 80),
+                ("CARI_KODU", "Cari Kodu", 4, 120),
+                ("CARI_ACIKLAMASI", "Cari Adı", 5, 200),
+                ("PROJE_KODU", "Proje", 6, 120),
+                ("PARA_BIRIMI", "Para Birimi", 7, 80),
+                ("KUR", "Kur",8, 80),
+                ("FATURA_KDVSIZ_TUTAR", "KDV'siz Tutar", 9, 120),
+                ("KDV_TUTARI", "KDV", 10, 100),
+                ("FATURA_TOPLAM_TUTAR_TL", "Toplam (TL)", 11, 120),
+                ("FATURA_TOPLAM_TUTAR_ID", "Toplam (ID)", 12, 120),
+                ("FATURA_ACIKLAMASI", "Fatura Açıklaması", 13, 250),
+                ("MALZEME_BILGILERI", "Malzeme Bilgileri", 14, 400)
             };
             foreach (var kolon in kolonlar)
             {

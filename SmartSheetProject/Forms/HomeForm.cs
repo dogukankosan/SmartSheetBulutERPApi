@@ -25,7 +25,6 @@ namespace SmartSheetProject.Forms
             // Kullanıcının kayıtlı temasını yükle
             await ThemeManager.LoadUserThemeAsync();
         }
-
         /// <summary>
         /// Tema değiştiğinde otomatik kaydet
         /// </summary>
@@ -53,8 +52,8 @@ namespace SmartSheetProject.Forms
         }
         private void accordionControlElementVeriCek_Click(object sender, EventArgs e)
         {
-            XtraMessageBox.Show("Yakında...", "Bilgi",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            BulutERPInvoice cs = new BulutERPInvoice();
+            cs.ShowDialog();
         }
         private void accordionControlElementVeriGonder_Click(object sender, EventArgs e)
         {
@@ -90,7 +89,6 @@ namespace SmartSheetProject.Forms
         {
             Application.Exit();
         }
-
         private void sqliteAccordionElement_Click(object sender, EventArgs e)
         {
             SQLiteForm form = new SQLiteForm();
