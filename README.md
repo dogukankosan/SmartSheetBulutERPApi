@@ -5,26 +5,31 @@
 ![Issues](https://img.shields.io/github/issues/dogukankosan/SmartSheetBulutERPApi)
 ![Last Commit](https://img.shields.io/github/last-commit/dogukankosan/SmartSheetBulutERPApi)
 
-<img width="1271" height="761" alt="DD" src="https://github.com/user-attachments/assets/072d2832-2fc8-4c2b-a0f5-64c3ed07eef7" />
+<img width="1514" height="810" alt="ss" src="https://github.com/user-attachments/assets/1707075b-e559-459a-8a19-bb2f98514e77" />
 
 
-> **SmartSheetBulutERPApi**, Logo Bulut ERP sisteminden fatura verilerini otomatik olarak çekerek Smartsheet platformuna aktaran, lisans bazlı çalışan bir masaüstü C#/.NET entegrasyon uygulamasıdır.
+> **SmartSheetBulutERPApi**, Logo Bulut ERP sisteminden fatura verilerini otomatik olarak çekerek Smartsheet platformuna aktaran ve Smartsheet'teki onaylı gider kayıtlarını Logo'ya fatura olarak gönderen, lisans bazlı çalışan bir masaüstü C#/.NET entegrasyon uygulamasıdır.
 
 ---
 
 ## 🚀 Özellikler
 
 - 🔗 Logo Bulut ERP ile tam entegrasyon (REST API)
-- 📊 Smartsheet otomasyonu (Gider/Gelir sheet'leri)
+- 📊 Smartsheet otomasyonu (Gider/Gelir/Expenses sheet'leri)
 - 🔐 Hardware ID bazlı lisans sistemi
 - 🔄 Otomatik token yönetimi ve yenileme
 - 📋 Gider ve Gelir faturalarını otomatik aktarma
+- 💼 **Smartsheet'ten Logo'ya otomatik fatura oluşturma**
+- ✅ **3 aşamalı onay kontrolü (Muhasebe/Yönetici/Supervisor)**
 - 🚫 Duplicate (tekrarlı kayıt) kontrolü
 - 💾 SQLite ile yerel ayar ve log yönetimi
 - 🔒 Şifreli token ve API key saklama
 - ⚡ Toplu veri işleme desteği
 - 📝 Detaylı hata loglama sistemi
 - ⏱ Token süre takibi (5 dakika önceden otomatik yenileme)
+- 🧾 **JSON log sistemi (başarılı ve hatalı faturalar)**
+- 🔍 **Malzeme kodu validasyonu**
+- 📧 **Email bazlı cari eşleştirme**
 
 ---
 
@@ -43,11 +48,14 @@ SmartSheetBulutERPApi/
 ├── Models/
 │   ├── GiderFaturaModel.cs         # Gider fatura veri modeli
 │   ├── GelirFaturaModel.cs         # Gelir fatura veri modeli
+│   ├── ExpenseModel.cs             # ✨ Smartsheet gider kaydı modeli
+│   ├── GroupedExpenseModel.cs      # ✨ Gruplandırılmış gider modeli
 │   └── BulutERPSettings.cs         # Bulut ERP ayarları modeli
 ├── Forms/
 │   └── MainForm.cs                 # Ana uygulama ekranı
-└── Database/
-    └── Settings.db                 # SQLite veritabanı
+├── Database/
+│   └── Settings.db                 # SQLite veritabanı
+└── JSONLog/                         # ✨ Fatura JSON logları (başarılı/hatalı)
 ```
 
 ---
@@ -65,8 +73,8 @@ SmartSheetBulutERPApi/
 
 1. **Projeyi Klonla:**
 ```bash
-   git clone https://github.com/dogukankosan/SmartSheetBulutERPApi.git
-   cd SmartSheetBulutERPApi
+git clone https://github.com/dogukankosan/SmartSheetBulutERPApi.git
+cd SmartSheetBulutERPApi
 ```
 
 2. **Projeyi Visual Studio ile Aç ve Derle**
@@ -96,6 +104,7 @@ SmartSheetBulutERPApi/
 
 - **Gider Sheet ID:** `6658795850649476`
 - **Gelir Sheet ID:** `4003473281470340`
+- **Expenses Sheet ID:** `8931463861849988` ✨
 - **API Token:** Şifreli olarak SQLite'da saklanır
 
 ---
@@ -109,6 +118,10 @@ SmartSheetBulutERPApi/
 | `EnsureValidTokenAsync()` | Token kontrolü ve otomatik yenileme |
 | `ExecuteSelectQueryAsync()` | SQL sorgusu çalıştırma |
 | `GetTokenAsync()` | Yeni token alma |
+| `CreateInvoiceAsync()` | ✨ Logo'ya fatura oluşturma |
+| `GetMalzemeCardTypeAsync()` | ✨ Malzeme kodu validasyonu |
+| `ConvertGroupedExpenseToInvoiceAsync()` | ✨ Expense'i faturaya dönüştürme |
+| `CheckInvoiceExistsAsync()` | ✨ Fatura kontrol (duplicate check) |
 
 **Örnek Kullanım:**
 ```csharp
@@ -125,6 +138,17 @@ if (result.Success)
         // Fatura verilerini işle
     }
 }
+
+// ✨ Logo'ya fatura oluşturma
+var invoiceResult = await BulutERPService.CreateInvoiceAsync(
+    invoiceData: invoiceObject,
+    invoiceType: 4  // 1=Satınalma, 4=Hizmet
+);
+
+if (invoiceResult.Success)
+{
+    Console.WriteLine($"Logo Fiş No: {invoiceResult.LogoInvoiceNo}");
+}
 ```
 
 ### 2. Smartsheet Servisi
@@ -135,6 +159,9 @@ if (result.Success)
 | `AddMultipleGelirFaturaAsync()` | Toplu gelir faturası ekleme |
 | `GetGiderFaturaKeysAsync()` | Mevcut gider faturaları (duplicate kontrolü) |
 | `GetGelirFaturaKeysAsync()` | Mevcut gelir faturaları (duplicate kontrolü) |
+| `GetGroupedApprovedExpensesAsync()` | ✨ Onaylı giderleri grupla ve getir |
+| `GetCariKoduByEmailAsync()` | ✨ Email ile cari kodu bul |
+| `ValidateExpenseAsync()` | ✨ Gider kaydı validasyonu |
 | `TestConnectionAsync()` | Bağlantı testi |
 
 **Örnek Kullanım:**
@@ -148,6 +175,34 @@ if (result.Success)
 {
     Console.WriteLine($"{result.Count} adet fatura eklendi!");
 }
+
+// ✨ Onaylı giderleri getir ve Logo'ya gönder
+var expensesResult = await SmartsheetService.GetGroupedApprovedExpensesAsync();
+if (expensesResult.Success)
+{
+    foreach (var group in expensesResult.GroupedExpenses)
+    {
+        // Email ile cari bul
+        var cariResult = await SmartsheetService.GetCariKoduByEmailAsync(
+            group.KayitEdenKullanici
+        );
+        
+        if (cariResult.Success)
+        {
+            // Faturaya dönüştür
+            var invoiceResult = await BulutERPService.ConvertGroupedExpenseToInvoiceAsync(
+                group, 
+                cariResult.CariKodu
+            );
+            
+            // Logo'ya gönder
+            await BulutERPService.CreateInvoiceAsync(
+                invoiceResult.InvoiceData,
+                invoiceResult.InvoiceType
+            );
+        }
+    }
+}
 ```
 
 ### 3. Lisans Servisi
@@ -160,7 +215,9 @@ if (result.Success)
 
 ---
 
-## ⚡ Kullanım Senaryosu
+## ⚡ Kullanım Senaryoları
+
+### Senaryo 1: Logo'dan Smartsheet'e Fatura Aktarımı
 
 1. **Lisans Aktivasyonu:** Uygulama ilk açılışta lisans anahtarı ile aktive edilir
 2. **Ayarlar:** Bulut ERP ve Smartsheet bağlantı bilgileri girilir
@@ -168,6 +225,20 @@ if (result.Success)
 4. **Veri Çekme:** Logo Bulut ERP'den SQL sorguları ile fatura verileri çekilir
 5. **Duplicate Kontrol:** Smartsheet'teki mevcut kayıtlar kontrol edilir
 6. **Aktarım:** Yeni faturalar Smartsheet'e toplu olarak eklenir
+
+### Senaryo 2: Smartsheet'ten Logo'ya Gider Faturası Oluşturma ✨
+
+1. **Onaylı Giderleri Getir:** 3 aşamalı onayı geçmiş kayıtlar çekilir
+2. **Gruplama:** Aynı fatura no, kayıt eden ve tarihe sahip kayıtlar gruplanır
+3. **Validasyon:** 
+   - Fatura no, tarih, malzeme kodu kontrolü
+   - Malzeme kodlarının Logo'da varlığı doğrulanır
+   - Email adresi ile cari kodu eşleştirilir
+4. **Duplicate Kontrol:** Logo'da aynı fatura var mı kontrol edilir
+5. **Dönüştürme:** Expense kayıtları Logo fatura formatına dönüştürülür
+6. **JSON Kayıt:** İstek JSONLog klasörüne kaydedilir
+7. **Logo'ya Gönderim:** REST API ile fatura oluşturulur
+8. **Sonuç:** Başarılı/hatalı durumlar loglanır ve JSON'a kaydedilir
 
 ---
 
@@ -215,6 +286,31 @@ if (result.Success)
 | KDV'siz Tutar | 903831234498436 | Matrah |
 | Malzeme Bilgileri | 5407430861868932 | Kalem detayları |
 
+### Expenses Sheet (Gider Onay) ✨
+
+| Kolon | ColumnID | Açıklama |
+|-------|----------|----------|
+| UID | 158077037531012 | Benzersiz kayıt ID |
+| Kayıt Tarihi | 4661676664901508 | Kayıt oluşturma tarihi |
+| Kayıt Eden | 2409876851216260 | Email adresi (cari eşleştirme için) |
+| Şirket Adı | 6913476478586756 | Tedarikçi adı |
+| Fatura Tarihi | 3535776758058884 | Fatura tarihi |
+| Fatura No | 8039376385429380 | Fatura numarası (gruplama anahtarı) |
+| Proje Kodu | 5224626618322820 | Proje kodu |
+| Fatura Açıklaması | 1846926897794948 | Açıklama |
+| Döviz Türü | 6350526525165444 | TRY/USD/EUR |
+| Amount | 8602326338850692 | Tutar |
+| Malzeme Listesi | 7125346611318660 | Malzeme kodu (validasyon için) |
+| KDV | 439552014241668 | VAR/YOK |
+| KDV Oranı | 1035061510754180 | KDV % |
+| Birim Fiyat | 2240014585646980 | Birim fiyat |
+| Satır Toplam | 8471080124239748 | Satır toplam tutar |
+| Muhasebe Onay | 7194951455297412 | Approved/Rejected |
+| Yönetici Onay | 6069051548454788 | Approved/Rejected |
+| Supervisor Approval | 1565451921084292 | Approved/Rejected |
+| Archive | 3817251734769540 | Arşivleme durumu |
+| Logo Reference | 8320851362140036 | Logo fiş numarası |
+
 ---
 
 ## 🔐 Güvenlik Özellikleri
@@ -225,15 +321,58 @@ if (result.Success)
 - ✅ SQL injection koruması (parametreli sorgular)
 - ✅ Otomatik token süre sonu kontrolü
 - ✅ Şifreli veritabanı bağlantıları
+- ✅ 3 aşamalı onay mekanizması ✨
+- ✅ Detaylı JSON log sistemi ✨
 
 ---
 
 ## 📝 Loglama Sistemi
 
+### SQLite Logları
 Tüm işlemler SQLite veritabanına loglanır:
 ```csharp
 await TextLog.LogToSQLiteAsync("❌ API bağlantı hatası: Timeout");
 await TextLog.LogToSQLiteAsync("✅ 150 adet fatura başarıyla aktarıldı");
+```
+
+### JSON Log Sistemi ✨
+Her Logo fatura işlemi JSONLog klasörüne kaydedilir:
+
+**Başarılı Fatura:**
+```
+JSONLog/
+└── 20250208_143052_FAT2025001.json
+```
+```json
+/*
+=================================================
+BAŞARILI - LOGO FATURA AKTARIM
+=================================================
+Fatura No: FAT2025001
+Logo Fiş No: ~FAT2025001
+Tarih: 08.02.2025 14:30:52
+Invoice Type: 4
+=================================================
+*/
+
+// ========== REQUEST JSON ==========
+{
+  "no": "FAT2025001",
+  "date": "2025-02-08T00:00:00+03:00",
+  ...
+}
+
+// ========== RESPONSE SUCCESS ==========
+{
+  "no": "~FAT2025001",
+  "successful": true
+}
+```
+
+**Hatalı Fatura:**
+```
+JSONLog/
+└── 20250208_143052_HATALI_FAT2025002.json
 ```
 
 ---
@@ -272,7 +411,7 @@ await TextLog.LogToSQLiteAsync("✅ 150 adet fatura başarıyla aktarıldı");
 
 ## 🎯 Duplicate Kontrol Mekanizması
 
-Fatura tekrarını önlemek için:
+### Smartsheet → Smartsheet (Gider/Gelir)
 ```csharp
 // Smartsheet'teki mevcut faturalar
 var existingKeys = await SmartsheetService.GetGiderFaturaKeysAsync();
@@ -286,9 +425,27 @@ var newFaturalar = allFaturalar.Where(f =>
 await SmartsheetService.AddMultipleGiderFaturaAsync(newFaturalar);
 ```
 
+### Smartsheet → Logo ✨
+```csharp
+// Logo'da fatura var mı kontrol et
+var existsResult = await BulutERPService.CheckInvoiceExistsAsync(
+    faturaNo: group.FaturaNo,
+    cariKodu: cariKodu,
+    faturaTarihi: group.FaturaTarihi.Value
+);
+
+if (existsResult.Exists)
+{
+    await TextLog.LogToSQLiteAsync($"⚠️ Fatura zaten Logo'da mevcut: {group.FaturaNo}");
+    continue; // Bu faturayı atla
+}
+```
+
 ---
 
-## 🚦 API Endpoint'leri (Lisans Sunucusu)
+## 🚦 API Endpoint'leri
+
+### Lisans Sunucusu
 
 | Endpoint | Metod | Açıklama |
 |----------|-------|----------|
@@ -297,6 +454,13 @@ await SmartsheetService.AddMultipleGiderFaturaAsync(newFaturalar);
 | `/api/license/health` | GET | API sağlık kontrolü |
 
 **Base URL:** `http://188.132.128.186:1020`
+
+### Logo Bulut ERP API
+
+| Endpoint | Metod | Açıklama |
+|----------|-------|----------|
+| `/restservices/rest/dataQuery/executeSelectQuery` | POST | SQL sorgusu çalıştırma |
+| `/restservices/rest/v2.0/invoices/purchase` | POST | Satınalma faturası oluşturma ✨ |
 
 ---
 
@@ -317,11 +481,38 @@ WHERE INVOICE.TRCODE IN (1, 2, 3)
 ORDER BY INVOICE.DATE_ DESC
 ```
 
+### Email ile Cari Bulma ✨
+```sql
+SELECT CODE 
+FROM U_$V(firm)_ARPS 
+WHERE BOSTATUS<>1 
+  AND UPPER(EMAIL) = UPPER('user@example.com')
+```
+
+### Malzeme Kontrolü ✨
+```sql
+SELECT CARDTYPE 
+FROM U_$V(firm)_ITEMS 
+WHERE BOSTATUS<>1 
+  AND CODE='MAL001'
+```
+
+### Fatura Kontrolü ✨
+```sql
+SELECT INV.LOGICALREF, INV.SLIPNR, ARP.CODE, INV.SLIPDATE
+FROM U_$V(firm)_01_INVOICES INV
+JOIN U_$V(firm)_ARPS ARP ON ARP.LOGICALREF = INV.ARPREF
+WHERE INV.SLIPNR = 'FAT2025001'
+  AND ARP.CODE = 'CARI001'
+```
+
 **Not:** `$V(firm)` parametresi otomatik olarak firma numarası ile değiştirilir.
 
 ---
 
 ## 🛡️ Hata Yönetimi
+
+### Genel Try-Catch Yapısı
 ```csharp
 try
 {
@@ -342,6 +533,18 @@ catch (Exception ex)
 }
 ```
 
+### Expense Validasyonu ✨
+```csharp
+var validationResult = await SmartsheetService.ValidateExpenseAsync(expense);
+
+if (!validationResult.IsValid)
+{
+    string hataMesaji = string.Join("\n", validationResult.Errors);
+    await TextLog.LogToSQLiteAsync($"❌ Validasyon hatası: {hataMesaji}");
+    // Hatalı kayıtları atla veya kullanıcıya bildir
+}
+```
+
 ---
 
 ## 📦 NuGet Paketleri
@@ -350,6 +553,111 @@ catch (Exception ex)
 <PackageReference Include="Smartsheet.API" Version="3.x" />
 <PackageReference Include="System.Data.SQLite" Version="1.0.118" />
 ```
+
+---
+
+## 🔄 Smartsheet → Logo Fatura Akışı ✨
+
+```
+1. Onaylı Giderleri Getir
+   ↓
+   • Muhasebe Onay = "Approved"
+   • Yönetici Onay = "Approved"  
+   • Supervisor Approval = "Approved"
+   ↓
+2. Fatura No ve Tarihe Göre Grupla
+   ↓
+   • Aynı fatura no
+   • Aynı kayıt eden
+   • Her grup için toplam tutar hesapla
+   ↓
+3. Validasyon Kontrolleri
+   ↓
+   ├─ Fatura No boş mu?
+   ├─ Fatura Tarihi geçerli mi?
+   ├─ Malzeme kodları Logo'da var mı?
+   ├─ Satır toplamlar sıfır mı?
+   └─ Email adresi geçerli mi?
+   ↓
+4. Email → Cari Kodu Eşleştirme
+   ↓
+   • Logo ARPS tablosundan EMAIL ile cari bul
+   • Bulunamazsa → HATA
+   ↓
+5. Logo'da Fatura Var mı Kontrol
+   ↓
+   • Aynı fatura no + cari kodu varsa → ATLA
+   ↓
+6. Fatura Dönüştürme
+   ↓
+   • Malzeme CARDTYPE kontrolü
+   • CARDTYPE=1 varsa → invoiceType=1 (Satınalma)
+   • Hepsi CARDTYPE≠1 ise → invoiceType=4 (Hizmet)
+   • KDV hesaplama
+   • JSON formatına dönüştürme
+   ↓
+7. JSON Kayıt (Request)
+   ↓
+   • JSONLog/ klasörüne request JSON kaydet
+   ↓
+8. Logo'ya POST
+   ↓
+   • /v2.0/invoices/purchase?invoiceType={type}
+   ↓
+9. Sonuç
+   ↓
+   ├─ ✅ Başarılı
+   │  ├─ Logo fiş no al
+   │  ├─ JSON'a response ekle
+   │  ├─ SQLite'a log
+   │  └─ (Opsiyonel) Smartsheet'e Logo Reference yaz
+   │
+   └─ ❌ Hata
+      ├─ Hata mesajını JSON'a ekle
+      ├─ HATALI_ prefix ile kaydet
+      └─ SQLite'a hata logu
+```
+
+---
+
+## 🧩 Fatura Tipi Belirleme Mantığı ✨
+
+```csharp
+// Her malzeme kaleminin CARDTYPE'ı kontrol edilir
+HashSet<int> cardTypes = new HashSet<int>();
+
+foreach (var item in group.Items)
+{
+    var malzemeResult = await GetMalzemeCardTypeAsync(item.MalzemeKodu);
+    cardTypes.Add(malzemeResult.CardType.Value);
+}
+
+// Fatura tipi belirleme
+int invoiceType = cardTypes.Contains(1) ? 1 : 4;
+
+// invoiceType = 1 → SATINALMA FİŞİ (en az 1 malzeme varsa)
+// invoiceType = 4 → HİZMET FİŞİ (sadece hizmet kalemleri varsa)
+```
+
+---
+
+## 🎯 Kullanım İpuçları
+
+### Genel
+1. **Token Süresi:** Token'lar 1 saat geçerlidir, sistem otomatik yeniler
+2. **Toplu İşlem:** 500+ fatura için batch işlem önerilir
+3. **Duplicate Kontrol:** Her aktarım öncesi mutlaka duplicate kontrol yapılır
+4. **Bağlantı Testi:** İlk kurulumda test butonlarını kullanın
+5. **Log Takibi:** Hata durumunda SQLite loglarını inceleyin
+
+### Expenses Modülü İçin ✨
+6. **Email Adresi:** Kayıt eden kullanıcının email adresi Logo ARPS tablosunda tanımlı olmalı
+7. **Malzeme Kodları:** Malzeme Listesi kolonu "MALKOD---Açıklama" formatında olabilir (--- ile split edilir)
+8. **3 Onay:** Muhasebe, Yönetici ve Supervisor onayı olmadan fatura oluşturulmaz
+9. **JSON Logları:** Başarılı ve hatalı tüm istekler JSONLog/ klasöründe saklanır
+10. **KDV Hesaplama:** KDV="VAR" ve KDV Oranı>0 ise otomatik hesaplanır
+11. **Gruplama:** Aynı fatura no + kayıt eden bir faturada birleştirilir
+12. **CARDTYPE:** Malzeme kartı tipi otomatik tespit edilir (1=Malzeme, diğer=Hizmet)
 
 ---
 
@@ -378,13 +686,19 @@ MIT License
 
 ---
 
-## 🎯 Kullanım İpuçları
+## 🎉 Güncellemeler
 
-1. **Token Süresi:** Token'lar 1 saat geçerlidir, sistem otomatik yeniler
-2. **Toplu İşlem:** 500+ fatura için batch işlem önerilir
-3. **Duplicate Kontrol:** Her aktarım öncesi mutlaka duplicate kontrol yapılır
-4. **Bağlantı Testi:** İlk kurulumda test butonlarını kullanın
-5. **Log Takibi:** Hata durumunda SQLite loglarını inceleyin
+### v2.0 (Şubat 2025) ✨
+- **Yeni:** Smartsheet'ten Logo'ya otomatik fatura oluşturma
+- **Yeni:** Expenses Sheet entegrasyonu
+- **Yeni:** 3 aşamalı onay sistemi (Muhasebe/Yönetici/Supervisor)
+- **Yeni:** Email bazlı cari eşleştirme
+- **Yeni:** Malzeme kodu validasyonu
+- **Yeni:** JSON log sistemi (başarılı/hatalı faturalar)
+- **Yeni:** Duplicate kontrol (Logo'da fatura kontrolü)
+- **İyileştirme:** Gruplama mantığı (tarih gruplama anahtarından çıkarıldı)
+- **İyileştirme:** KDV hesaplama otomasyonu
+- **İyileştirme:** CARDTYPE bazlı fatura tipi belirleme
 
 ---
 
