@@ -688,7 +688,7 @@ MIT License
 
 ## 🎉 Güncellemeler
 
-### v2.0 (Şubat 2025) ✨
+### v1.1 (Şubat 2025) ✨
 - **Yeni:** Smartsheet'ten Logo'ya otomatik fatura oluşturma
 - **Yeni:** Expenses Sheet entegrasyonu
 - **Yeni:** 3 aşamalı onay sistemi (Muhasebe/Yönetici/Supervisor)
