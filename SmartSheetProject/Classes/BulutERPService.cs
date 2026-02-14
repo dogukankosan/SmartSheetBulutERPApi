@@ -395,7 +395,7 @@ StackTrace: {ex.StackTrace}
             documenDate = group.FaturaTarihi.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz")
         }
     },
-                    no = group.FaturaNo,
+                  //  no = group.FaturaNo,
                     documentNo = group.FaturaNo,
                     date = group.FaturaTarihi.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
                     time = new
@@ -453,7 +453,7 @@ StackTrace: {ex.StackTrace}
                     SELECT INV.LOGICALREF, INV.SLIPNR, ARP.CODE, INV.SLIPDATE
                     FROM U_$V(firm)_01_INVOICES INV
                     JOIN U_$V(firm)_ARPS ARP ON ARP.LOGICALREF = INV.ARPREF
-                    WHERE INV.SLIPNR = '{faturaNo.Replace("'", "''")}'
+                    WHERE INV.DOCODE = '{faturaNo.Replace("'", "''")}'
                       AND ARP.CODE = '{cariKodu.Replace("'", "''")}'".Trim();
                 var result = await ExecuteSelectQueryAsync(sqlQuery, tokenResult.AccessToken, 1);
                 if (!result.Success)
@@ -467,6 +467,29 @@ StackTrace: {ex.StackTrace}
             catch (Exception ex)
             {
                 await TextLog.LogToSQLiteAsync($"❌ CheckInvoiceExistsAsync exception: {ex.Message}");
+                return (false, false, ex.Message);
+            }
+        }
+        public static async Task<(bool Success, bool Exists, string ErrorMessage)> CheckProjeKoduExistsAsync(string projeKodu)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(projeKodu))
+                    return (false, false, "Proje kodu boş");
+                var tokenResult = await EnsureValidTokenAsync();
+                if (!tokenResult.Success)
+                    return (false, false, tokenResult.ErrorMessage);
+                // ✅ Şartlar eklendi: CODETYPE=1 ve (USAGETYPE & 1) = 1
+                string sqlQuery = $"SELECT AUXCODE FROM U_$V(firm)_AUXCODES WHERE AUXCODETYPE=22 AND AUXCODE='{projeKodu.Replace("'", "''")}' AND CODETYPE=1 AND (USAGETYPE & 1) = 1";
+                var result = await ExecuteSelectQueryAsync(sqlQuery, tokenResult.AccessToken, 1);
+                if (!result.Success)
+                    return (false, false, result.ErrorMessage);
+                bool exists = result.Data != null && result.Data.Count > 0;
+                return (true, exists, null);
+            }
+            catch (Exception ex)
+            {
+                await TextLog.LogToSQLiteAsync($"❌ CheckProjeKoduExistsAsync hatası: {ex.Message}");
                 return (false, false, ex.Message);
             }
         }

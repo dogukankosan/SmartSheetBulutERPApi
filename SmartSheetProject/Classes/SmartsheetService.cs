@@ -361,7 +361,7 @@ namespace SmartSheetProject.Classes
                         expense.FaturaTarihi = faturaTarihi;
                     // Decimal parse
                     if (decimal.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == amountColId)?.Value?.ToString(), out decimal amount))
-                       expense.Amount = amount;
+                        expense.Amount = amount;
                     if (decimal.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == kdvOraniColId)?.Value?.ToString(), out decimal kdvOrani))
                         expense.KDVOrani = kdvOrani;
                     if (decimal.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == birimFiyatColId)?.Value?.ToString(), out decimal birimFiyat))
@@ -372,19 +372,18 @@ namespace SmartSheetProject.Classes
                     expense.Archive = archiveCell?.Value?.ToString()?.ToLower() == "true";
                     allExpenses.Add(expense);
                 }
-                // GRUPLAMA - Tarihe göre GRUPLAMA
+                // GRUPLAMA
                 var grouped = allExpenses
                     .GroupBy(e => new
                     {
                         FaturaNo = e.FaturaNo?.Trim() ?? "",
-        // FaturaTarihi = e.FaturaTarihi?.Date ?? DateTime.MinValue,  ← BU SATIRI SİL!
-        KayitEden = e.KayitEdenKullanici?.Trim() ?? ""
+                        KayitEden = e.KayitEdenKullanici?.Trim() ?? ""
                     })
                     .Select(g => new GroupedExpenseModel
                     {
                         FaturaNo = g.Key.FaturaNo,
-                        FaturaTarihi = g.First().FaturaTarihi,  // ← İlk satırın tarihini al
-        FaturaAciklamasi = g.First().FaturaAciklamasi,
+                        FaturaTarihi = g.First().FaturaTarihi,
+                        FaturaAciklamasi = g.First().FaturaAciklamasi,
                         KayitEdenKullanici = g.Key.KayitEden,
                         SirketAdi = g.First().SirketAdi,
                         ProjeKodu = g.First().ProjeKodu,
@@ -393,11 +392,22 @@ namespace SmartSheetProject.Classes
                         ToplamTutar = g.Sum(x => x.SatirToplamTutar ?? 0)
                     })
                     .ToList();
-                // Malzeme validasyonu - sadece hatalı olanları logla
+                // Malzeme ve PROJE KODU validasyonu
                 foreach (GroupedExpenseModel grup in grouped)
                 {
                     HashSet<string> malzemeHatalari = new HashSet<string>();
-                    foreach (var item in grup.Items)
+                    // 🔴 PROJE KODU KONTROLÜ (Grup seviyesinde - tüm satırlar aynı proje koduna sahip)
+                    string projeKodu = grup.ProjeKodu?.Trim() ?? "";
+                    if (!string.IsNullOrWhiteSpace(projeKodu))
+                    {
+                        var projeResult = await BulutERPService.CheckProjeKoduExistsAsync(projeKodu);
+                        if (!projeResult.Success || !projeResult.Exists)
+                        {
+                            malzemeHatalari.Add($"Proje Kodu '{projeKodu}' Logo'da bulunamadı");
+                        }
+                    }
+                    // Malzeme kontrolleri (her satır için)
+                    foreach (ExpenseModel item in grup.Items)
                     {
                         string malzemeKodu = item.MalzemeListesi ?? "";
                         if (malzemeKodu.Contains("---"))
@@ -408,7 +418,7 @@ namespace SmartSheetProject.Classes
                         {
                             var malzemeResult = await BulutERPService.GetMalzemeCardTypeAsync(malzemeKodu);
                             if (!malzemeResult.Success)
-                                malzemeHatalari.Add($"'{malzemeKodu}' Logo'da yok");
+                                malzemeHatalari.Add($"Malzeme '{malzemeKodu}' Logo'da yok");
                         }
                     }
                     grup.MalzemeHatalari = malzemeHatalari.ToList();
@@ -420,6 +430,44 @@ namespace SmartSheetProject.Classes
                 await TextLog.LogToSQLiteAsync($"❌ GetGroupedApprovedExpensesAsync hatası: {ex.Message}\nStackTrace: {ex.StackTrace}");
                 return (false, null, ex.Message);
             }
+        }
+        public static async Task<(bool IsValid, List<string> Errors)> ValidateExpenseAsync(ExpenseModel expense)
+        {
+            List<string> hatalar = new List<string>();
+            // Fatura No kontrolü
+            if (string.IsNullOrWhiteSpace(expense.FaturaNo))
+                hatalar.Add("Fatura No boş");
+            // Fatura Tarihi kontrolü
+            if (!expense.FaturaTarihi.HasValue || expense.FaturaTarihi.Value == DateTime.MinValue)
+                hatalar.Add("Fatura Tarihi geçersiz");
+            // 🔴 PROJE KODU KONTROLÜ
+            string projeKodu = expense.ProjeKodu?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(projeKodu))
+            {
+                var projeResult = await BulutERPService.CheckProjeKoduExistsAsync(projeKodu);
+                if (!projeResult.Success || !projeResult.Exists)
+                    hatalar.Add($"Proje Kodu '{projeKodu}' Logo'da bulunamadı");
+            }
+            // Malzeme Kodu kontrolü
+            string malzemeKodu = expense.MalzemeListesi ?? "";
+            if (malzemeKodu.Contains("---"))
+                malzemeKodu = malzemeKodu.Split(new[] { "---" }, StringSplitOptions.None)[0].Trim();
+            if (string.IsNullOrWhiteSpace(malzemeKodu))
+                hatalar.Add("Malzeme seçilmemiş");
+            else
+            {
+                var malzemeResult = await BulutERPService.GetMalzemeCardTypeAsync(malzemeKodu);
+                if (!malzemeResult.Success)
+                    hatalar.Add($"Malzeme '{malzemeKodu}' Logo'da yok");
+            }
+            // Toplam Tutar kontrolü
+            if (!expense.SatirToplamTutar.HasValue || expense.SatirToplamTutar.Value <= 0)
+                hatalar.Add("Satır Toplam Tutar sıfır veya boş");
+            // Email kontrolü
+            if (string.IsNullOrWhiteSpace(expense.KayitEdenKullanici))
+                hatalar.Add("Email adresi boş");
+            bool isValid = hatalar.Count == 0;
+            return (isValid, hatalar);
         }
         public static async Task<(bool Success, string CariKodu, string ErrorMessage)> GetCariKoduByEmailAsync(string email)
         {
@@ -447,37 +495,6 @@ namespace SmartSheetProject.Classes
                 return (false, null, ex.Message);
             }
         }
-        public static async Task<(bool IsValid, List<string> Errors)> ValidateExpenseAsync(ExpenseModel expense)
-        {
-            List<string> hatalar = new List<string>();
-            // Fatura No kontrolü
-            if (string.IsNullOrWhiteSpace(expense.FaturaNo))
-                hatalar.Add("Fatura No boş");
-            // Fatura Tarihi kontrolü
-            if (!expense.FaturaTarihi.HasValue || expense.FaturaTarihi.Value == DateTime.MinValue)
-                hatalar.Add("Fatura Tarihi geçersiz");
-            // Malzeme Kodu kontrolü
-            string malzemeKodu = expense.MalzemeListesi ?? "";
-            if (malzemeKodu.Contains("---"))
-                malzemeKodu = malzemeKodu.Split(new[] { "---" }, StringSplitOptions.None)[0].Trim();
-            if (string.IsNullOrWhiteSpace(malzemeKodu))
-                hatalar.Add("Malzeme seçilmemiş");
-            else
-            {
-                var malzemeResult = await BulutERPService.GetMalzemeCardTypeAsync(malzemeKodu);
-                if (!malzemeResult.Success)
-                    hatalar.Add($"Malzeme '{malzemeKodu}' Logo'da yok");
-            }
-            // Toplam Tutar kontrolü
-            if (!expense.SatirToplamTutar.HasValue || expense.SatirToplamTutar.Value <= 0)
-               hatalar.Add("Satır Toplam Tutar sıfır veya boş");
-            // Email kontrolü
-            if (string.IsNullOrWhiteSpace(expense.KayitEdenKullanici))
-                hatalar.Add("Email adresi boş");
-            bool isValid = hatalar.Count == 0;
-            return (isValid, hatalar);
-        }
         #endregion
-
     }
 }

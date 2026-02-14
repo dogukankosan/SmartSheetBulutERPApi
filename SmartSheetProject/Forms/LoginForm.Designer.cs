@@ -272,7 +272,7 @@
             // 
             // txtSifre
             // 
-            this.txtSifre.EditValue = "123";
+            this.txtSifre.EditValue = "";
             this.txtSifre.Location = new System.Drawing.Point(35, 11);
             this.txtSifre.Name = "txtSifre";
             this.txtSifre.Properties.Appearance.BackColor = System.Drawing.Color.Transparent;
@@ -298,7 +298,7 @@
             // 
             // txtKullaniciAdi
             // 
-            this.txtKullaniciAdi.EditValue = "LOGO";
+            this.txtKullaniciAdi.EditValue = "";
             this.txtKullaniciAdi.Location = new System.Drawing.Point(35, 10);
             this.txtKullaniciAdi.Name = "txtKullaniciAdi";
             this.txtKullaniciAdi.Properties.Appearance.BackColor = System.Drawing.Color.Transparent;
