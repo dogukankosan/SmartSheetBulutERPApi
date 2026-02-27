@@ -304,6 +304,8 @@ StackTrace: {ex.StackTrace}
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(group.LogoReference))
+                    return (false, null, 0, "LOGO Accounting Reference # alanı boş - fatura oluşturulamaz!");
                 List<object> itemList = new List<object>();
                 HashSet<int> cardTypes = new HashSet<int>();
                 List<string> hatalar = new List<string>();
@@ -348,7 +350,14 @@ StackTrace: {ex.StackTrace}
                     toplamKdvsiz += kdvsizTutar;
                     toplamKdv += kdvTutari;
                     // ÖNEMLİ: CardType = 1 ise type = 0 (normal satış), değilse type = 4 (hizmet)
-                    int itemType = (cardType == 1) ? 0 : 4;
+                    // YENİ:
+                    int itemType;
+                    if (cardType == 1 || cardType == 13)
+                        itemType = 0;   // ticari mal / tüketim malı
+                    else if (cardType == 4)
+                        itemType = 8;   // varlık
+                    else
+                        itemType = 4;   // hizmet
                     var itemTransaction = new
                     {
                         type = itemType,
@@ -378,7 +387,7 @@ StackTrace: {ex.StackTrace}
                 if (itemList.Count == 0)
                     return (false, null, 0, "Geçerli malzeme kalemi bulunamadı!");
                 // FATURA TİPİ: 1 tane bile malzeme varsa SATINALMA (1), yoksa HİZMET (4)
-                int invoiceType = cardTypes.Contains(1) ? 1 : 4;
+                int invoiceType = (cardTypes.Contains(1) || cardTypes.Contains(13) || cardTypes.Contains(4)) ? 1 : 4;
                 toplamKdvsiz = Math.Round(toplamKdvsiz, 2);
                 toplamKdv = Math.Round(toplamKdv, 2);
                 decimal toplamTutar = toplamKdvsiz + toplamKdv;
@@ -403,6 +412,7 @@ StackTrace: {ex.StackTrace}
                         hour = group.FaturaTarihi.Value.Hour,
                         minute = group.FaturaTarihi.Value.Minute
                     },
+                    auxCode5 = group.LogoReference ?? "",
                     auxCode = group.ProjeKodu ?? "",
                     documentDate = group.FaturaTarihi.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
                     orgUnit = "01",
@@ -437,7 +447,8 @@ StackTrace: {ex.StackTrace}
         public static async Task<(bool Success, bool Exists, string ErrorMessage)> CheckInvoiceExistsAsync(
             string faturaNo,
             string cariKodu,
-            DateTime faturaTarihi)
+            DateTime faturaTarihi,
+            string logoReference=null)
         {
             try
             {
@@ -449,12 +460,17 @@ StackTrace: {ex.StackTrace}
                 if (!tokenResult.Success)
                     return (false, false, tokenResult.ErrorMessage);
                 // SQL sorgusu ile fatura kontrolü - Fatura no ve cari kodu uyuşmalı
+
+                string logoCondition = !string.IsNullOrWhiteSpace(logoReference)
+                    ? $"AND (INV.DOCODE = '{faturaNo.Replace("'", "''")}' AND INV.AUXCODE5 = '{logoReference.Replace("'", "''")}')"
+                    : $"AND INV.DOCODE = '{faturaNo.Replace("'", "''")}'";
+
                 string sqlQuery = $@"
-                    SELECT INV.LOGICALREF, INV.SLIPNR, ARP.CODE, INV.SLIPDATE
-                    FROM U_$V(firm)_01_INVOICES INV
-                    JOIN U_$V(firm)_ARPS ARP ON ARP.LOGICALREF = INV.ARPREF
-                    WHERE INV.DOCODE = '{faturaNo.Replace("'", "''")}'
-                      AND ARP.CODE = '{cariKodu.Replace("'", "''")}'".Trim();
+    SELECT INV.LOGICALREF
+    FROM U_$V(firm)_01_INVOICES INV
+    JOIN U_$V(firm)_ARPS ARP ON ARP.LOGICALREF = INV.ARPREF
+    WHERE ARP.CODE = '{cariKodu.Replace("'", "''")}'
+    {logoCondition}".Trim();
                 var result = await ExecuteSelectQueryAsync(sqlQuery, tokenResult.AccessToken, 1);
                 if (!result.Success)
                 {

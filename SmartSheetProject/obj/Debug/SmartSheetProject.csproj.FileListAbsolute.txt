@@ -168,4 +168,3 @@ C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\Smar
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.SQLiteForm.resources
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.LicenseInputForm.resources
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.BulutERPInvoice.resources
-C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.csprojAssemblyReference.cache

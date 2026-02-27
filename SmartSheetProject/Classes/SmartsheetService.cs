@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using Smartsheet.Api;
 using Smartsheet.Api.Models;
 using SmartSheetProject.Models;
@@ -88,8 +89,11 @@ namespace SmartSheetProject.Classes
                     .SetAccessToken(tokenResult.Token)
                     .Build();
                 Sheet sheet = await Task.Run(() =>
-                    smartsheet.SheetResources.GetSheet(GIDER_SHEET_ID, null, null, null, null, null, null, null)
-                );
+               smartsheet.SheetResources.GetSheet(
+                   EXPENSES_SHEET_ID,
+                   new List<SheetLevelInclusion>(),  // boş liste
+                   null, null, null, null, null, null)
+           );
                 return (true, $"Bağlantı başarılı! Sheet: {sheet.Name}");
             }
             catch (Exception ex)
@@ -340,6 +344,7 @@ namespace SmartSheetProject.Classes
                         continue;
                     ExpenseModel expense = new ExpenseModel
                     {
+                        SmartsheetRowId = row.Id.HasValue ? row.Id.Value : 0,
                         UID = row.Cells.FirstOrDefault(c => c.ColumnId == uidColId)?.Value?.ToString(),
                         KayitEdenKullanici = row.Cells.FirstOrDefault(c => c.ColumnId == kayitEdenColId)?.Value?.ToString(),
                         SirketAdi = row.Cells.FirstOrDefault(c => c.ColumnId == sirketAdiColId)?.Value?.ToString(),
@@ -353,7 +358,7 @@ namespace SmartSheetProject.Classes
                         SupervisorApproval = supervisorOnay,
                         YoneticiOnay = yoneticiOnay,
                         LogoReference = row.Cells.FirstOrDefault(c => c.ColumnId == logoRefColId)?.Value?.ToString()
-                    };
+                    }; 
                     // Tarih parse
                     if (DateTime.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == kayitTarihiColId)?.Value?.ToString(), out DateTime kayitTarihi))
                         expense.KayitTarihi = kayitTarihi;
@@ -374,17 +379,14 @@ namespace SmartSheetProject.Classes
                 }
                 // GRUPLAMA
                 var grouped = allExpenses
-                    .GroupBy(e => new
-                    {
-                        FaturaNo = e.FaturaNo?.Trim() ?? "",
-                        KayitEden = e.KayitEdenKullanici?.Trim() ?? ""
-                    })
+                    .GroupBy(e => e.LogoReference?.Trim() ?? "")   // ← SADECE BU, başka hiçbir şey
                     .Select(g => new GroupedExpenseModel
                     {
-                        FaturaNo = g.Key.FaturaNo,
+                        LogoReference = g.Key,
+                        FaturaNo = g.First().FaturaNo?.Trim() ?? "",
                         FaturaTarihi = g.First().FaturaTarihi,
                         FaturaAciklamasi = g.First().FaturaAciklamasi,
-                        KayitEdenKullanici = g.Key.KayitEden,
+                        KayitEdenKullanici = g.First().KayitEdenKullanici?.Trim() ?? "",
                         SirketAdi = g.First().SirketAdi,
                         ProjeKodu = g.First().ProjeKodu,
                         DovizTuru = g.First().DovizTuru,
@@ -397,6 +399,9 @@ namespace SmartSheetProject.Classes
                 {
                     HashSet<string> malzemeHatalari = new HashSet<string>();
                     // 🔴 PROJE KODU KONTROLÜ (Grup seviyesinde - tüm satırlar aynı proje koduna sahip)
+                    // ✅ LOGO REFERENCE KONTROLÜ - YENİ
+                    if (string.IsNullOrWhiteSpace(grup.LogoReference))
+                        malzemeHatalari.Add("LOGO Accounting Reference # boş - bu satırlar hangi fişe ait bilinemiyor");
                     string projeKodu = grup.ProjeKodu?.Trim() ?? "";
                     if (!string.IsNullOrWhiteSpace(projeKodu))
                     {
@@ -440,6 +445,8 @@ namespace SmartSheetProject.Classes
             // Fatura Tarihi kontrolü
             if (!expense.FaturaTarihi.HasValue || expense.FaturaTarihi.Value == DateTime.MinValue)
                 hatalar.Add("Fatura Tarihi geçersiz");
+            if (string.IsNullOrWhiteSpace(expense.LogoReference))
+                hatalar.Add("LOGO Accounting Reference boş olamaz");
             // 🔴 PROJE KODU KONTROLÜ
             string projeKodu = expense.ProjeKodu?.Trim() ?? "";
             if (!string.IsNullOrWhiteSpace(projeKodu))
@@ -496,5 +503,80 @@ namespace SmartSheetProject.Classes
             }
         }
         #endregion
+        public static async Task<(bool Success, int UpdatedCount, string ErrorMessage)> MarkAsTransferredToLogoAsync(
+            string logoReference)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(logoReference))
+                    return (false, 0, "LogoReference boş!");
+
+                var tokenResult = await GetApiTokenAsync();
+                if (!tokenResult.Success)
+                    return (false, 0, tokenResult.ErrorMessage);
+
+                // Önce sheet'i REST API ile çek, row ID'leri gelecek
+                using (var http = new System.Net.Http.HttpClient())
+                {
+                    http.DefaultRequestHeaders.Add("Authorization", $"Bearer {tokenResult.Token}");
+
+                    // Sheet'ten satırları çek
+                    string getUrl = $"https://api.smartsheet.com/2.0/sheets/{EXPENSES_SHEET_ID}";
+                    var getResponse = await http.GetAsync(getUrl);
+                    string getJson = await getResponse.Content.ReadAsStringAsync();
+
+                    Newtonsoft.Json.Linq.JObject sheetObj = Newtonsoft.Json.Linq.JObject.Parse(getJson);
+                    Newtonsoft.Json.Linq.JArray rows = sheetObj["rows"] as Newtonsoft.Json.Linq.JArray;
+
+                    long logoRefColId = 8320851362140036;
+                    long logoyaGonderildiColumnId = 4239569086795652;
+
+                    List<object> rowsToUpdate = new List<object>();
+                    foreach (var row in rows)
+                    {
+                        long rowId = row["id"].Value<long>();
+                        var cells = row["cells"] as Newtonsoft.Json.Linq.JArray;
+                        var logoCell = cells?.FirstOrDefault(c => c["columnId"]?.Value<long>() == logoRefColId);
+                        string cellValue = logoCell?["value"]?.ToString() ?? logoCell?["displayValue"]?.ToString() ?? "";
+
+                        if (cellValue.Trim() == logoReference.Trim())
+                        {
+                            rowsToUpdate.Add(new
+                            {
+                                id = rowId,
+                                cells = new[]
+                                {
+                            new { columnId = logoyaGonderildiColumnId, value = true }
+                        }
+                            });
+                        }
+                    }
+
+                    if (rowsToUpdate.Count == 0)
+                        return (false, 0, $"'{logoReference}' için satır bulunamadı!");
+
+                    // Güncelle
+                    string putJson = Newtonsoft.Json.JsonConvert.SerializeObject(rowsToUpdate);
+                    var content = new System.Net.Http.StringContent(putJson, System.Text.Encoding.UTF8, "application/json");
+                    string putUrl = $"https://api.smartsheet.com/2.0/sheets/{EXPENSES_SHEET_ID}/rows";
+                    var putResponse = await http.PutAsync(putUrl, content);
+                    string putResult = await putResponse.Content.ReadAsStringAsync();
+
+                    if (!putResponse.IsSuccessStatusCode)
+                    {
+                        await TextLog.LogToSQLiteAsync($"❌ Smartsheet PUT hatası: {putResult}");
+                        return (false, 0, putResult);
+                    }
+
+                    await TextLog.LogToSQLiteAsync($"✅ Smartsheet checkbox güncellendi: {logoReference} - {rowsToUpdate.Count} satır");
+                    return (true, rowsToUpdate.Count, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                await TextLog.LogToSQLiteAsync($"❌ MarkAsTransferredToLogoAsync hatası: {ex.Message}");
+                return (false, 0, ex.Message);
+            }
+        }
     }
 }

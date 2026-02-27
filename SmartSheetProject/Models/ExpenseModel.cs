@@ -24,6 +24,8 @@ namespace SmartSheetProject.Models
         public string YoneticiOnay { get; set; }
         public bool? Archive { get; set; }
         public string LogoReference { get; set; }
+        // ← BURAYA EKLE
+        public long SmartsheetRowId { get; set; }
         /// <summary>
         /// 3 onay da verilmiş mi?
         /// </summary>

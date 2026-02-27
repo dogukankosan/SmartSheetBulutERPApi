@@ -137,7 +137,8 @@ namespace SmartSheetProject.Forms
                     CariKodu = g.CariKodu,
                     TumHatalar = g.TumHatalar,
                     GrupToplamTutar = g.ToplamTutar,
-                    LogodaVar = logoFaturaNumaralari.Contains(g.FaturaNo),
+                    LogoReference = g.LogoReference,
+                    LogodaVar = logoFaturaNumaralari.Contains(g.LogoReference),
                     UID = item.UID,
                     FaturaAciklamasi = g.FaturaAciklamasi,
                     MalzemeListesi = item.MalzemeListesi,
@@ -156,9 +157,10 @@ namespace SmartSheetProject.Forms
                 gridView1.ClearGrouping();
                 if (gruplama)
                 {
-                    gridView1.Columns["FaturaNo"].GroupIndex = 0;
-                    gridView1.Columns["FaturaTarihi"].GroupIndex = 1;
-                    gridView1.Columns["KayitEdenKullanici"].GroupIndex = 2;
+                    gridView1.Columns["LogoReference"].GroupIndex = 0;
+                    gridView1.Columns["FaturaNo"].GroupIndex = 1;
+                    gridView1.Columns["FaturaTarihi"].GroupIndex = 2;
+                    gridView1.Columns["KayitEdenKullanici"].GroupIndex = 3;
                     gridView1.ExpandAllGroups();
                 }
                 gridView1.BestFitColumns();
@@ -183,9 +185,10 @@ namespace SmartSheetProject.Forms
                 var checkResult = await BulutERPService.CheckInvoiceExistsAsync(
                     grup.FaturaNo,
                     grup.CariKodu,
-                    grup.FaturaTarihi ?? DateTime.Now);
+                    grup.FaturaTarihi ?? DateTime.Now,
+                    grup.LogoReference);
                 if (checkResult.Success && checkResult.Exists)
-                    logoFaturaNumaralari.Add(grup.FaturaNo);
+                    logoFaturaNumaralari.Add(grup.LogoReference);
                 else if (!checkResult.Success)
                     await TextLog.LogToSQLiteAsync($"⚠️ Logo kontrolü yapılamadı: {grup.FaturaNo} - {checkResult.ErrorMessage}");
             }
@@ -299,22 +302,20 @@ namespace SmartSheetProject.Forms
                 object selectedRow = gridView1.GetRow(e.ControllerRow);
                 if (selectedRow != null)
                 {
-                    var faturaNoProperty = selectedRow.GetType().GetProperty("FaturaNo");
-                    if (faturaNoProperty != null)
+                    var logoRefProperty = selectedRow.GetType().GetProperty("LogoReference");
+                    if (logoRefProperty != null)
                     {
-                        string secilenFaturaNo = faturaNoProperty.GetValue(selectedRow, null) as string;
-                        if (!string.IsNullOrWhiteSpace(secilenFaturaNo))
+                        string secilenLogoRef = logoRefProperty.GetValue(selectedRow, null) as string;
+                        if (!string.IsNullOrWhiteSpace(secilenLogoRef))
                         {
                             for (int i = 0; i < gridView1.DataRowCount; i++)
                             {
                                 object row = gridView1.GetRow(i);
                                 if (row != null)
                                 {
-                                    var faturaNo = faturaNoProperty.GetValue(row, null) as string;
-                                    if (faturaNo == secilenFaturaNo)
-                                    {
+                                    var logoRef = logoRefProperty.GetValue(row, null) as string;
+                                    if (logoRef == secilenLogoRef)
                                         gridView1.SelectRow(i);
-                                    }
                                 }
                             }
                         }
@@ -371,7 +372,7 @@ namespace SmartSheetProject.Forms
                     XtraMessageBox.Show("Lütfen aktarılacak faturaları seçin!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-                HashSet<string> secilenFaturaNumaralari = new HashSet<string>();
+                HashSet<string> secilenLogoRefler = new HashSet<string>();
                 foreach (int rowHandle in selectedRows)
                 {
                     if (rowHandle >= 0)
@@ -379,33 +380,31 @@ namespace SmartSheetProject.Forms
                         var row = gridView1.GetRow(rowHandle);
                         if (row != null)
                         {
-                            var faturaNoProperty = row.GetType().GetProperty("FaturaNo");
-                            if (faturaNoProperty != null)
+                            var logoRefProperty = row.GetType().GetProperty("LogoReference");
+                            if (logoRefProperty != null)
                             {
-                                string faturaNo = faturaNoProperty.GetValue(row, null) as string;
-                                if (!string.IsNullOrWhiteSpace(faturaNo))
-                                {
-                                    secilenFaturaNumaralari.Add(faturaNo);
-                                }
+                                string logoRef = logoRefProperty.GetValue(row, null) as string;
+                                if (!string.IsNullOrWhiteSpace(logoRef))
+                                    secilenLogoRefler.Add(logoRef);
                             }
                         }
                     }
                 }
-                if (secilenFaturaNumaralari.Count == 0)
+                if (secilenLogoRefler.Count == 0)
                 {
                     XtraMessageBox.Show("Geçerli fatura seçimi bulunamadı!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 var aktarilacakGruplar = grupluExpenses
-                    .Where(g => secilenFaturaNumaralari.Contains(g.FaturaNo))
+                    .Where(g => secilenLogoRefler.Contains(g.LogoReference))
                     .ToList();
                 var logodaVarOlanlar = aktarilacakGruplar
-                    .Where(g => logoFaturaNumaralari.Contains(g.FaturaNo))
+                    .Where(g => logoFaturaNumaralari.Contains(g.LogoReference))
                     .ToList();
                 if (logodaVarOlanlar.Count > 0)
                 {
                     string mesaj = $"⚠️ {logodaVarOlanlar.Count} fatura zaten Logo'da mevcut:\n\n";
-                    mesaj += string.Join("\n", logodaVarOlanlar.Select(x => $"• {x.FaturaNo}").Take(5));
+                    mesaj += string.Join("\n", logodaVarOlanlar.Select(x => $"• {x.LogoReference} ({x.FaturaNo})").Take(5));
                     if (logodaVarOlanlar.Count > 5)
                         mesaj += $"\n...ve {logodaVarOlanlar.Count - 5} fatura daha";
                     mesaj += "\n\nBu faturalar atlanacak. Devam etmek istiyor musunuz?";
@@ -419,17 +418,17 @@ namespace SmartSheetProject.Forms
                 if (hatalilar.Count == aktarilacakGruplar.Count)
                 {
                     XtraMessageBox.Show(
-                        $"TÜM SEÇİLİ FATURALARDA HATA VAR!\n\nLütfen hataları düzeltin:\n\n{string.Join("\n", hatalilar.Select(x => $"• {x.FaturaNo}: {x.TumHatalar}").Take(5))}",
+                        $"TÜM SEÇİLİ FATURALARDA HATA VAR!\n\nLütfen hataları düzeltin:\n\n{string.Join("\n", hatalilar.Select(x => $"• {x.LogoReference} ({x.FaturaNo}): {x.TumHatalar}").Take(5))}",
                         "Hata",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     return;
                 }
-                string onayMesaji = $"✅ {aktarilacakGruplar.Count - logodaVarOlanlar.Count - hatalilar.Count} fatura Logo'ya aktarılacak.";
+               string onayMesaji = $"✅ {aktarilacakGruplar.Count - logodaVarOlanlar.Count - hatalilar.Count} fatura Logo'ya aktarılacak.";
                 if (hatalilar.Count > 0)
                 {
                     onayMesaji += $"\n⚠️ {hatalilar.Count} faturada hata var (atlanacak):\n";
-                    onayMesaji += string.Join("\n", hatalilar.Select(x => $"• {x.FaturaNo}: {x.TumHatalar}").Take(3));
+                    onayMesaji += string.Join("\n", hatalilar.Select(x => $"• {x.LogoReference} ({x.FaturaNo}): {x.TumHatalar}").Take(3));
                     if (hatalilar.Count > 3)
                         onayMesaji += $"\n...ve {hatalilar.Count - 3} fatura daha";
                 }
@@ -475,11 +474,11 @@ namespace SmartSheetProject.Forms
                 {
                     simdiki++;
                     progressPanel.Caption = $"Logo'ya Aktarılıyor ({simdiki}/{toplam})";
-                    progressPanel.Description = $"İşleniyor: {grup.FaturaNo}";
+                    progressPanel.Description = $"İşleniyor: {grup.LogoReference} ({grup.FaturaNo})";
                     progressForm.Refresh();
                     Application.DoEvents();
                     // Logo'da var mı kontrolü
-                    if (logoFaturaNumaralari.Contains(grup.FaturaNo))
+                    if (logoFaturaNumaralari.Contains(grup.LogoReference))
                     {
                         atlandi++;
                         continue;
@@ -488,8 +487,8 @@ namespace SmartSheetProject.Forms
                     if (!string.IsNullOrWhiteSpace(grup.TumHatalar))
                     {
                         hatali++;
-                        hataMesajlari.Add($"{grup.FaturaNo}: {grup.TumHatalar}");
-                        await TextLog.LogToSQLiteAsync($"❌ Atlandı (Hata var): {grup.FaturaNo} - {grup.TumHatalar}");
+                        hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {grup.TumHatalar}");
+                        await TextLog.LogToSQLiteAsync($"❌ Atlandı (Hata var): {grup.LogoReference} - {grup.TumHatalar}");
                         continue;
                     }
                     // Fatura dönüştürme
@@ -497,8 +496,8 @@ namespace SmartSheetProject.Forms
                     if (!convertResult.Success)
                     {
                         hatali++;
-                        hataMesajlari.Add($"{grup.FaturaNo}: {convertResult.ErrorMessage}");
-                        await TextLog.LogToSQLiteAsync($"❌ Fatura dönüştürme hatası: {grup.FaturaNo} - {convertResult.ErrorMessage}");
+                        hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {convertResult.ErrorMessage}");
+                        await TextLog.LogToSQLiteAsync($"❌ Fatura dönüştürme hatası: {grup.LogoReference} - {convertResult.ErrorMessage}");
                         continue;
                     }
                     // Logo'ya gönder
@@ -506,18 +505,20 @@ namespace SmartSheetProject.Forms
                     if (result.Success)
                     {
                         basarili++;
-                        logoFaturaNumaralari.Add(grup.FaturaNo);
+                        logoFaturaNumaralari.Add(grup.LogoReference);
+                        var markResult = await SmartsheetService.MarkAsTransferredToLogoAsync(grup.LogoReference);
+                        if (!markResult.Success)
+                            await TextLog.LogToSQLiteAsync($"⚠️ Checkbox güncellenemedi: {grup.LogoReference} - {markResult.ErrorMessage}");
                     }
                     else
                     {
                         hatali++;
-                        hataMesajlari.Add($"{grup.FaturaNo}: {result.ErrorMessage}");
-                        await TextLog.LogToSQLiteAsync($"❌ Logo aktarım hatası: {grup.FaturaNo} - {result.ErrorMessage}");
+                        hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {result.ErrorMessage}");
+                        await TextLog.LogToSQLiteAsync($"❌ Logo aktarım hatası: {grup.LogoReference} - {result.ErrorMessage}");
                     }
                 }
                 progressForm.Close();
                 progressForm.Dispose();
-                // Sonuç mesajı
                 string sonucMesaji = $"🎉 Aktarım Tamamlandı!\n\n✅ Başarılı: {basarili} fatura\n❌ Hatalı: {hatali} fatura";
                 if (atlandi > 0)
                     sonucMesaji += $"\n⏭️ Atlandı (Logo'da var): {atlandi} fatura";
@@ -563,9 +564,10 @@ namespace SmartSheetProject.Forms
                 else
                 {
                     gridView1.ClearGrouping();
-                    gridView1.Columns["FaturaNo"].GroupIndex = 0;
-                    gridView1.Columns["FaturaTarihi"].GroupIndex = 1;
-                    gridView1.Columns["KayitEdenKullanici"].GroupIndex = 2;
+                    gridView1.Columns["LogoReference"].GroupIndex = 0;
+                    gridView1.Columns["FaturaNo"].GroupIndex = 1;
+                    gridView1.Columns["FaturaTarihi"].GroupIndex = 2;
+                    gridView1.Columns["KayitEdenKullanici"].GroupIndex = 3;
                     gridView1.ExpandAllGroups();
                     btnGrubuCoz.Text = "Grubu Çöz";
                     gruplama = true;
