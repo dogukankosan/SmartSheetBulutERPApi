@@ -52,7 +52,7 @@ namespace SmartSheetProject.Forms
         }
         private void accordionControlElementVeriCek_Click(object sender, EventArgs e)
         {
-            BulutERPInvoice cs = new BulutERPInvoice();
+            BulutERPInvoiceForm cs = new BulutERPInvoiceForm();
             cs.ShowDialog();
         }
         private void accordionControlElementVeriGonder_Click(object sender, EventArgs e)
@@ -92,6 +92,12 @@ namespace SmartSheetProject.Forms
         private void sqliteAccordionElement_Click(object sender, EventArgs e)
         {
             SQLiteForm form = new SQLiteForm();
+            form.ShowDialog();
+        }
+
+        private void btn_CustomerTime_Click(object sender, EventArgs e)
+        {
+            CustomerMaturityForm form = new CustomerMaturityForm();
             form.ShowDialog();
         }
     }

@@ -73,7 +73,7 @@ namespace SmartSheetProject.Forms
         }
         private async void LoginForm_Load(object sender, EventArgs e)
         {
-          
+            txtKullaniciAdi.Focus();
             // Lisans kontrolü yap
             bool isLicenseValid = await CheckLicenseAsync();
             if (!isLicenseValid)

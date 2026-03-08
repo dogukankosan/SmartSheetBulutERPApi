@@ -133,17 +133,23 @@
     <Compile Include="Forms\AboutForm.Designer.cs">
       <DependentUpon>AboutForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\BulutERPInvoice.cs">
+    <Compile Include="Forms\BulutERPInvoiceForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\BulutERPInvoice.Designer.cs">
-      <DependentUpon>BulutERPInvoice.cs</DependentUpon>
+    <Compile Include="Forms\BulutERPInvoiceForm.Designer.cs">
+      <DependentUpon>BulutERPInvoiceForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\BulutERPSettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\BulutERPSettingsForm.Designer.cs">
       <DependentUpon>BulutERPSettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\CustomerMaturityForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\CustomerMaturityForm.Designer.cs">
+      <DependentUpon>CustomerMaturityForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\ErrorListForm.cs">
       <SubType>Form</SubType>
@@ -203,11 +209,14 @@
     <EmbeddedResource Include="Forms\AboutForm.resx">
       <DependentUpon>AboutForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\BulutERPInvoice.resx">
-      <DependentUpon>BulutERPInvoice.cs</DependentUpon>
+    <EmbeddedResource Include="Forms\BulutERPInvoiceForm.resx">
+      <DependentUpon>BulutERPInvoiceForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\BulutERPSettingsForm.resx">
       <DependentUpon>BulutERPSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\CustomerMaturityForm.resx">
+      <DependentUpon>CustomerMaturityForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\ErrorListForm.resx">
       <DependentUpon>ErrorListForm.cs</DependentUpon>

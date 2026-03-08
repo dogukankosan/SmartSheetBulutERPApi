@@ -167,4 +167,6 @@ C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\Smar
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.LoginForm.resources
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.SQLiteForm.resources
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.LicenseInputForm.resources
-C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.BulutERPInvoice.resources
+C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.BulutERPInvoiceForm.resources
+C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.CustomerMaturityForm.resources
+C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.csprojAssemblyReference.cache

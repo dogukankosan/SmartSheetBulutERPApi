@@ -58,6 +58,7 @@
             this.barDockControlBottom = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlLeft = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlRight = new DevExpress.XtraBars.BarDockControl();
+            this.btn_CustomerTime = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.fluentDesignFormContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.panelControlMain)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.accordionControl1)).BeginInit();
@@ -110,7 +111,8 @@
             this.accordionControlElementIslemler.Elements.AddRange(new DevExpress.XtraBars.Navigation.AccordionControlElement[] {
             this.giderControlButton,
             this.accordionGelirler,
-            this.accordionControlElementVeriCek});
+            this.accordionControlElementVeriCek,
+            this.btn_CustomerTime});
             this.accordionControlElementIslemler.Expanded = true;
             this.accordionControlElementIslemler.ImageOptions.Image = ((System.Drawing.Image)(resources.GetObject("accordionControlElementIslemler.ImageOptions.Image")));
             this.accordionControlElementIslemler.Name = "accordionControlElementIslemler";
@@ -286,6 +288,13 @@
             this.barDockControlRight.Manager = this.barManager1;
             this.barDockControlRight.Size = new System.Drawing.Size(0, 669);
             // 
+            // btn_CustomerTime
+            // 
+            this.btn_CustomerTime.Name = "btn_CustomerTime";
+            this.btn_CustomerTime.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
+            this.btn_CustomerTime.Text = "Cari Vade Takibi";
+            this.btn_CustomerTime.Click += new System.EventHandler(this.btn_CustomerTime_Click);
+            // 
             // HomeForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -329,5 +338,6 @@
         private DevExpress.XtraBars.SkinBarSubItem skinBarSubItem1;
         private DevExpress.XtraBars.Navigation.AccordionControlElement accordionControlElementError;
         private DevExpress.XtraBars.Navigation.AccordionControlElement sqliteAccordionElement;
+        private DevExpress.XtraBars.Navigation.AccordionControlElement btn_CustomerTime;
     }
 }

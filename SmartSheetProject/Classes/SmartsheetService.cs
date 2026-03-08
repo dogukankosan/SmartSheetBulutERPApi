@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Smartsheet.Api;
@@ -15,6 +16,7 @@ namespace SmartSheetProject.Classes
         private static readonly long GIDER_SHEET_ID = 6658795850649476;
         private static readonly long GELIR_SHEET_ID = 4003473281470340;
         private static readonly long EXPENSES_SHEET_ID = 8931463861849988;
+        private static readonly long CARI_VADE_SHEET_ID = 2209925892624260;
 
         #region Token Management
         public static async Task<(bool Success, string ErrorMessage)> SaveApiTokenAsync(string apiToken)
@@ -503,6 +505,7 @@ namespace SmartSheetProject.Classes
             }
         }
         #endregion
+
         public static async Task<(bool Success, int UpdatedCount, string ErrorMessage)> MarkAsTransferredToLogoAsync(
             string logoReference)
         {
@@ -578,5 +581,155 @@ namespace SmartSheetProject.Classes
                 return (false, 0, ex.Message);
             }
         }
+
+        #region Cari Vade Bakiye Sheet Operations
+        private static readonly long CVB_COL_CARI_KODU = 7906095132266372;
+        private static readonly long CVB_COL_CARI_UNVAN = 587745737789316;
+        private static readonly long CVB_COL_BAKIYE_TL = 5091345365159812;
+        private static readonly long CVB_COL_BAKIYE_USD = 822369617399684;
+        private static readonly long CVB_COL_BAKIYE_EUR = 5325969244770180;
+        private static readonly long CVB_COL_BAKIYE_GBP = 4200069337927556;
+        private static readonly long CVB_COL_VADE_TL = 3074169431084932;
+        private static readonly long CVB_COL_VADE_USD = 7577769058455428;
+        private static readonly long CVB_COL_VADE_EUR = 1948269524242308;
+        private static readonly long CVB_COL_VADE_GBP = 6451869151612804;
+        // Taylan Bey Onay: 540894640689028 — dokunmuyoruz
+        public static async Task<(bool Success, int InsertCount, int UpdateCount, string ErrorMessage)>
+            UpsertCariVadeBakiyeAsync(List<Dictionary<string, object>> kayitlar)
+        {
+            try
+            {
+                if (kayitlar == null || kayitlar.Count == 0)
+                    return (false, 0, 0, "Kayıt listesi boş!");
+                var tokenResult = await GetApiTokenAsync();
+                if (!tokenResult.Success)
+                    return (false, 0, 0, tokenResult.ErrorMessage);
+                Dictionary<string, long> mevcutSatirlar = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+                List<long> silinecekSatirlar = new List<long>();
+                using (HttpClient http = new HttpClient())
+                {
+                    http.DefaultRequestHeaders.Add("Authorization", $"Bearer {tokenResult.Token}");
+                    // Sheet'i REST ile çek — SDK boş satırları atlıyor
+                    string getUrl = $"https://api.smartsheet.com/2.0/sheets/{CARI_VADE_SHEET_ID}";
+                    HttpResponseMessage getResponse = await http.GetAsync(getUrl);
+                    string getJson = await getResponse.Content.ReadAsStringAsync();
+                    JObject sheetObj = JObject.Parse(getJson);
+                    JArray rows = sheetObj["rows"] as JArray ?? new JArray();
+                    foreach (var row in rows)
+                    {
+                        long rowId = row["id"].Value<long>();
+                        JArray cells = row["cells"] as JArray;
+                        var cariKoduCell = cells?.FirstOrDefault(c => c["columnId"]?.Value<long>() == CVB_COL_CARI_KODU);
+                        string ck = cariKoduCell?["value"]?.ToString()?.Trim() ?? "";
+                        if (string.IsNullOrWhiteSpace(ck))
+                            silinecekSatirlar.Add(rowId);
+                        else if (!mevcutSatirlar.ContainsKey(ck))
+                            mevcutSatirlar[ck] = rowId;
+                        else
+                            silinecekSatirlar.Add(rowId); // duplicate
+                    }
+                    // Boş ve duplicate satırları sil
+                    if (silinecekSatirlar.Count > 0)
+                    {
+                        int batchSize = 450;
+                        for (int i = 0; i < silinecekSatirlar.Count; i += batchSize)
+                        {
+                            var batch = silinecekSatirlar.Skip(i).Take(batchSize).ToList();
+                            string ids = string.Join(",", batch);
+                            string deleteUrl = $"https://api.smartsheet.com/2.0/sheets/{CARI_VADE_SHEET_ID}/rows?ids={ids}&ignoreRowsNotFound=true";
+                            await http.DeleteAsync(deleteUrl);
+                        }
+                        await TextLog.LogToSQLiteAsync($"🗑️ {silinecekSatirlar.Count} boş/duplicate satır silindi");
+                    }
+                    // Upsert
+                    List<Row> rowsToInsert = new List<Row>();
+                    List<object> rowsToUpdate = new List<object>();
+                    foreach (var kayit in kayitlar)
+                    {
+                        string cariKodu = GetVal(kayit, "CARIKOD", "").ToString().Trim();
+                        if (string.IsNullOrWhiteSpace(cariKodu)) continue;
+                        var cells2 = new[]
+                        {
+                    new { columnId = CVB_COL_CARI_KODU,  value = (object)cariKodu },
+                    new { columnId = CVB_COL_CARI_UNVAN, value = (object)GetVal(kayit, "CARIACIKLAMA", "").ToString().Trim() },
+                    new { columnId = CVB_COL_BAKIYE_TL,  value = (object)ToDecimal(GetVal(kayit, "CARIBAKIYE", 0)) },
+                    new { columnId = CVB_COL_BAKIYE_USD, value = (object)ToDecimal(GetVal(kayit, "CARIUSD", 0)) },
+                    new { columnId = CVB_COL_BAKIYE_EUR, value = (object)ToDecimal(GetVal(kayit, "CARIEURO", 0)) },
+                    new { columnId = CVB_COL_BAKIYE_GBP, value = (object)ToDecimal(GetVal(kayit, "CARIGBP", 0)) },
+                    new { columnId = CVB_COL_VADE_TL,    value = (object)ToDecimal(GetVal(kayit, "VADESIGECMISBAKIYE", 0)) },
+                    new { columnId = CVB_COL_VADE_USD,   value = (object)ToDecimal(GetVal(kayit, "VADESIGECMISUSD", 0)) },
+                    new { columnId = CVB_COL_VADE_EUR,   value = (object)ToDecimal(GetVal(kayit, "VADESIGECMISEURO", 0)) },
+                    new { columnId = CVB_COL_VADE_GBP,   value = (object)ToDecimal(GetVal(kayit, "VADESIGECMISGBP", 0)) }
+                };
+
+                        if (mevcutSatirlar.TryGetValue(cariKodu, out long rowId))
+                            rowsToUpdate.Add(new { id = rowId, cells = cells2 });
+                        else
+                            rowsToInsert.Add(new Row { Cells = cells2.Select(c => new Cell { ColumnId = c.columnId, Value = c.value }).ToList(), ToBottom = true });
+                    }
+                    int updateCount = 0;
+                    int insertCount = 0;
+                    // UPDATE — REST
+                    if (rowsToUpdate.Count > 0)
+                    {
+                        int batchSize = 500;
+                        for (int i = 0; i < rowsToUpdate.Count; i += batchSize)
+                        {
+                            var batch = rowsToUpdate.Skip(i).Take(batchSize).ToList();
+                            string putJson = Newtonsoft.Json.JsonConvert.SerializeObject(batch);
+                            StringContent content = new StringContent(putJson, System.Text.Encoding.UTF8, "application/json");
+                            HttpResponseMessage putResponse = await http.PutAsync($"https://api.smartsheet.com/2.0/sheets/{CARI_VADE_SHEET_ID}/rows", content);
+                            if (putResponse.IsSuccessStatusCode)
+                                updateCount += batch.Count;
+                            else
+                            {
+                                string err = await putResponse.Content.ReadAsStringAsync();
+                                await TextLog.LogToSQLiteAsync($"❌ CariVadeBakiye UPDATE hatası: {err}");
+                            }
+                        }
+                        await TextLog.LogToSQLiteAsync($"✅ CariVadeBakiye UPDATE: {updateCount} satır");
+                    }
+                    // INSERT — SDK
+                    if (rowsToInsert.Count > 0)
+                    {
+                        SmartsheetClient smartsheet = new SmartsheetBuilder().SetAccessToken(tokenResult.Token).Build();
+                        int batchSize = 500;
+                        for (int i = 0; i < rowsToInsert.Count; i += batchSize)
+                        {
+                            var batch = rowsToInsert.Skip(i).Take(batchSize).ToList();
+                            var added = await Task.Run(() =>
+                                smartsheet.SheetResources.RowResources.AddRows(CARI_VADE_SHEET_ID, batch)
+                            );
+                            insertCount += added.Count;
+                        }
+                        await TextLog.LogToSQLiteAsync($"✅ CariVadeBakiye INSERT: {insertCount} satır");
+                    }
+                    await TextLog.LogToSQLiteAsync($"✅ CariVadeBakiye tamamlandı — INSERT: {insertCount}, UPDATE: {updateCount}");
+                    return (true, insertCount, updateCount, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                await TextLog.LogToSQLiteAsync($"❌ UpsertCariVadeBakiyeAsync hatası: {ex.Message}");
+                return (false, 0, 0, ex.Message);
+            }
+        }
+        private static object GetVal(Dictionary<string, object> row, string key, object defaultVal)
+        {
+            string match = row.Keys.FirstOrDefault(k => k.Equals(key, StringComparison.OrdinalIgnoreCase));
+            return match != null && row[match] != null ? row[match] : defaultVal;
+        }
+        private static decimal ToDecimal(object val)
+        {
+            if (val == null) return 0m;
+            try { return Convert.ToDecimal(val, System.Globalization.CultureInfo.InvariantCulture); }
+            catch
+            {
+                return decimal.TryParse(val.ToString(), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out decimal d) ? d : 0m;
+            }
+        }
+        #endregion
+
     }
 }

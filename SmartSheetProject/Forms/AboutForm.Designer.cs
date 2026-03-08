@@ -97,7 +97,7 @@
             this.labelCopyright.Name = "labelCopyright";
             this.labelCopyright.Size = new System.Drawing.Size(114, 15);
             this.labelCopyright.TabIndex = 5;
-            this.labelCopyright.Text = "© 2025 Mutlu Yazılım";
+            this.labelCopyright.Text = "© 2026 Mutlu Yazılım";
             // 
             // labelWebsite
             // 
