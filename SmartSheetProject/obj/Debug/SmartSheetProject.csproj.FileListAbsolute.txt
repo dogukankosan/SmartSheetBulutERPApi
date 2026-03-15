@@ -188,4 +188,3 @@ C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\bin\Debug\Micr
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\bin\Debug\RBush.xml
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\bin\Debug\SixLabors.Fonts.xml
 C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.Forms.PurInvoiceForm.resources
-C:\Users\DOGUKAN\source\repos\SmartSheetProject\SmartSheetProject\obj\Debug\SmartSheetProject.csprojAssemblyReference.cache
