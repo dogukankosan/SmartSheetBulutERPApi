@@ -39,6 +39,10 @@
             this.giderControlButton = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.accordionGelirler = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.accordionControlElementVeriCek = new DevExpress.XtraBars.Navigation.AccordionControlElement();
+            this.btn_CustomerTime = new DevExpress.XtraBars.Navigation.AccordionControlElement();
+            this.accordionControlSeparator3 = new DevExpress.XtraBars.Navigation.AccordionControlSeparator();
+            this.accordionControlElement1 = new DevExpress.XtraBars.Navigation.AccordionControlElement();
+            this.btnPurList = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.accordionControlSeparator2 = new DevExpress.XtraBars.Navigation.AccordionControlSeparator();
             this.accordionControlElementAyarlar = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.accordionControlElementSmartsheetAyarlari = new DevExpress.XtraBars.Navigation.AccordionControlElement();
@@ -58,7 +62,6 @@
             this.barDockControlBottom = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlLeft = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlRight = new DevExpress.XtraBars.BarDockControl();
-            this.btn_CustomerTime = new DevExpress.XtraBars.Navigation.AccordionControlElement();
             this.fluentDesignFormContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.panelControlMain)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.accordionControl1)).BeginInit();
@@ -95,6 +98,7 @@
             this.accordionControl1.Dock = System.Windows.Forms.DockStyle.Left;
             this.accordionControl1.Elements.AddRange(new DevExpress.XtraBars.Navigation.AccordionControlElement[] {
             this.accordionControlElementIslemler,
+            this.accordionControlElement1,
             this.accordionControlSeparator2,
             this.accordionControlElementAyarlar,
             this.accordionControlSeparator1,
@@ -112,11 +116,12 @@
             this.giderControlButton,
             this.accordionGelirler,
             this.accordionControlElementVeriCek,
-            this.btn_CustomerTime});
+            this.btn_CustomerTime,
+            this.accordionControlSeparator3});
             this.accordionControlElementIslemler.Expanded = true;
             this.accordionControlElementIslemler.ImageOptions.Image = ((System.Drawing.Image)(resources.GetObject("accordionControlElementIslemler.ImageOptions.Image")));
             this.accordionControlElementIslemler.Name = "accordionControlElementIslemler";
-            this.accordionControlElementIslemler.Text = "İşlemler";
+            this.accordionControlElementIslemler.Text = "Smartsheet İşlemleri";
             // 
             // giderControlButton
             // 
@@ -138,6 +143,33 @@
             this.accordionControlElementVeriCek.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
             this.accordionControlElementVeriCek.Text = "Expenses";
             this.accordionControlElementVeriCek.Click += new System.EventHandler(this.accordionControlElementVeriCek_Click);
+            // 
+            // btn_CustomerTime
+            // 
+            this.btn_CustomerTime.Name = "btn_CustomerTime";
+            this.btn_CustomerTime.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
+            this.btn_CustomerTime.Text = "Cari Vade Takibi";
+            this.btn_CustomerTime.Click += new System.EventHandler(this.btn_CustomerTime_Click);
+            // 
+            // accordionControlSeparator3
+            // 
+            this.accordionControlSeparator3.Name = "accordionControlSeparator3";
+            // 
+            // accordionControlElement1
+            // 
+            this.accordionControlElement1.Elements.AddRange(new DevExpress.XtraBars.Navigation.AccordionControlElement[] {
+            this.btnPurList});
+            this.accordionControlElement1.Expanded = true;
+            this.accordionControlElement1.ImageOptions.Image = ((System.Drawing.Image)(resources.GetObject("accordionControlElement1.ImageOptions.Image")));
+            this.accordionControlElement1.Name = "accordionControlElement1";
+            this.accordionControlElement1.Text = "Logo Raporlar";
+            // 
+            // btnPurList
+            // 
+            this.btnPurList.Name = "btnPurList";
+            this.btnPurList.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
+            this.btnPurList.Text = "Satınalma Raporu";
+            this.btnPurList.Click += new System.EventHandler(this.btnPurList_Click);
             // 
             // accordionControlSeparator2
             // 
@@ -288,13 +320,6 @@
             this.barDockControlRight.Manager = this.barManager1;
             this.barDockControlRight.Size = new System.Drawing.Size(0, 669);
             // 
-            // btn_CustomerTime
-            // 
-            this.btn_CustomerTime.Name = "btn_CustomerTime";
-            this.btn_CustomerTime.Style = DevExpress.XtraBars.Navigation.ElementStyle.Item;
-            this.btn_CustomerTime.Text = "Cari Vade Takibi";
-            this.btn_CustomerTime.Click += new System.EventHandler(this.btn_CustomerTime_Click);
-            // 
             // HomeForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -326,8 +351,6 @@
             this.PerformLayout();
 
         }
-
-        private DevExpress.XtraBars.Navigation.AccordionControlSeparator accordionControlSeparator2;
         private DevExpress.XtraBars.Navigation.AccordionControlSeparator accordionControlSeparator1;
         private DevExpress.XtraBars.PopupMenu popupMenu2;
         private DevExpress.XtraBars.BarDockControl barDockControlLeft;
@@ -339,5 +362,9 @@
         private DevExpress.XtraBars.Navigation.AccordionControlElement accordionControlElementError;
         private DevExpress.XtraBars.Navigation.AccordionControlElement sqliteAccordionElement;
         private DevExpress.XtraBars.Navigation.AccordionControlElement btn_CustomerTime;
+        private DevExpress.XtraBars.Navigation.AccordionControlSeparator accordionControlSeparator3;
+        private DevExpress.XtraBars.Navigation.AccordionControlElement accordionControlElement1;
+        private DevExpress.XtraBars.Navigation.AccordionControlElement btnPurList;
+        private DevExpress.XtraBars.Navigation.AccordionControlSeparator accordionControlSeparator2;
     }
 }

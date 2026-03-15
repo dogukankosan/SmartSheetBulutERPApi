@@ -94,10 +94,14 @@ namespace SmartSheetProject.Forms
             SQLiteForm form = new SQLiteForm();
             form.ShowDialog();
         }
-
         private void btn_CustomerTime_Click(object sender, EventArgs e)
         {
             CustomerMaturityForm form = new CustomerMaturityForm();
+            form.ShowDialog();
+        }
+        private void btnPurList_Click(object sender, EventArgs e)
+        {
+            PurInvoiceForm form = new PurInvoiceForm();
             form.ShowDialog();
         }
     }

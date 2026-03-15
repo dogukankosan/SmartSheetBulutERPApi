@@ -61,7 +61,7 @@ namespace SmartSheetProject.Classes
         public static async Task<(bool Success, List<Dictionary<string, object>> Data, string ErrorMessage)> ExecuteSelectQueryAsync(
             string sqlQuery,
             string accessToken = null,
-            int maxCount = 10000)
+            int maxCount = 5000)
         {
             try
             {

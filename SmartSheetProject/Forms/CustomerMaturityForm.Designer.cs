@@ -21,6 +21,7 @@
             this.bar1 = new DevExpress.XtraBars.Bar();
             this.btnYenile = new DevExpress.XtraBars.BarButtonItem();
             this.btnExcel = new DevExpress.XtraBars.BarButtonItem();
+            this.btn_CustomerNotCode = new DevExpress.XtraBars.BarButtonItem();
             this.barDockControlTop = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlBottom = new DevExpress.XtraBars.BarDockControl();
             this.barDockControlLeft = new DevExpress.XtraBars.BarDockControl();
@@ -28,10 +29,10 @@
             this.gridControl1 = new DevExpress.XtraGrid.GridControl();
             this.gridView1 = new DevExpress.XtraGrid.Views.Grid.GridView();
             this.panelControl1 = new DevExpress.XtraEditors.PanelControl();
+            this.btn_Smartsheet = new DevExpress.XtraEditors.SimpleButton();
             this.lblSeciliSayi = new DevExpress.XtraEditors.LabelControl();
             this.btnSecimiTemizle = new DevExpress.XtraEditors.SimpleButton();
             this.btnTumunuSec = new DevExpress.XtraEditors.SimpleButton();
-            this.btn_Smartsheet = new DevExpress.XtraEditors.SimpleButton();
             ((System.ComponentModel.ISupportInitialize)(this.barManager1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.gridControl1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.gridView1)).BeginInit();
@@ -50,9 +51,10 @@
             this.barManager1.Form = this;
             this.barManager1.Items.AddRange(new DevExpress.XtraBars.BarItem[] {
             this.btnYenile,
-            this.btnExcel});
+            this.btnExcel,
+            this.btn_CustomerNotCode});
             this.barManager1.MainMenu = this.bar1;
-            this.barManager1.MaxItemId = 2;
+            this.barManager1.MaxItemId = 3;
             // 
             // bar1
             // 
@@ -62,7 +64,8 @@
             this.bar1.DockStyle = DevExpress.XtraBars.BarDockStyle.Top;
             this.bar1.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
             new DevExpress.XtraBars.LinkPersistInfo(this.btnYenile),
-            new DevExpress.XtraBars.LinkPersistInfo(this.btnExcel)});
+            new DevExpress.XtraBars.LinkPersistInfo(this.btnExcel),
+            new DevExpress.XtraBars.LinkPersistInfo(this.btn_CustomerNotCode)});
             this.bar1.OptionsBar.MultiLine = true;
             this.bar1.OptionsBar.UseWholeRow = true;
             this.bar1.Text = "Main menu";
@@ -82,6 +85,13 @@
             this.btnExcel.Name = "btnExcel";
             this.btnExcel.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.btnExcel.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.btnExcel_ItemClick);
+            // 
+            // btn_CustomerNotCode
+            // 
+            this.btn_CustomerNotCode.Caption = "👨🏿‍🤝‍👨🏿 Cari Filtresi";
+            this.btn_CustomerNotCode.Id = 2;
+            this.btn_CustomerNotCode.Name = "btn_CustomerNotCode";
+            this.btn_CustomerNotCode.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.btn_CustomerNotCode_ItemClick);
             // 
             // barDockControlTop
             // 
@@ -149,6 +159,20 @@
             this.panelControl1.Size = new System.Drawing.Size(1400, 50);
             this.panelControl1.TabIndex = 0;
             // 
+            // btn_Smartsheet
+            // 
+            this.btn_Smartsheet.Appearance.BackColor = DevExpress.LookAndFeel.DXSkinColors.FillColors.Success;
+            this.btn_Smartsheet.Appearance.Font = new System.Drawing.Font("Tahoma", 9F, System.Drawing.FontStyle.Bold);
+            this.btn_Smartsheet.Appearance.Options.UseBackColor = true;
+            this.btn_Smartsheet.Appearance.Options.UseFont = true;
+            this.btn_Smartsheet.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btn_Smartsheet.Location = new System.Drawing.Point(268, 10);
+            this.btn_Smartsheet.Name = "btn_Smartsheet";
+            this.btn_Smartsheet.Size = new System.Drawing.Size(145, 30);
+            this.btn_Smartsheet.TabIndex = 2;
+            this.btn_Smartsheet.Text = "🐱‍🏍 Smartsheet Aktar";
+            this.btn_Smartsheet.Click += new System.EventHandler(this.btn_Smartsheet_Click);
+            // 
             // lblSeciliSayi
             // 
             this.lblSeciliSayi.Appearance.Font = new System.Drawing.Font("Tahoma", 10F, System.Drawing.FontStyle.Bold);
@@ -188,20 +212,6 @@
             this.btnTumunuSec.TabIndex = 0;
             this.btnTumunuSec.Text = "☑ Tümünü Seç";
             this.btnTumunuSec.Click += new System.EventHandler(this.btnTumunuSec_Click);
-            // 
-            // btn_Smartsheet
-            // 
-            this.btn_Smartsheet.Appearance.BackColor = DevExpress.LookAndFeel.DXSkinColors.FillColors.Success;
-            this.btn_Smartsheet.Appearance.Font = new System.Drawing.Font("Tahoma", 9F, System.Drawing.FontStyle.Bold);
-            this.btn_Smartsheet.Appearance.Options.UseBackColor = true;
-            this.btn_Smartsheet.Appearance.Options.UseFont = true;
-            this.btn_Smartsheet.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btn_Smartsheet.Location = new System.Drawing.Point(268, 10);
-            this.btn_Smartsheet.Name = "btn_Smartsheet";
-            this.btn_Smartsheet.Size = new System.Drawing.Size(145, 30);
-            this.btn_Smartsheet.TabIndex = 2;
-            this.btn_Smartsheet.Text = "🐱‍🏍 Smartsheet Aktar";
-            this.btn_Smartsheet.Click += new System.EventHandler(this.btn_Smartsheet_Click);
             // 
             // CustomerMaturityForm
             // 
@@ -248,5 +258,6 @@
         private DevExpress.XtraEditors.SimpleButton btnSecimiTemizle;
         private DevExpress.XtraEditors.LabelControl lblSeciliSayi;
         private DevExpress.XtraEditors.SimpleButton btn_Smartsheet;
+        private DevExpress.XtraBars.BarButtonItem btn_CustomerNotCode;
     }
 }
