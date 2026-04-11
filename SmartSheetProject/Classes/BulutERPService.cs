@@ -358,6 +358,16 @@ StackTrace: {ex.StackTrace}
                         itemType = 8;   // varlık
                     else
                         itemType = 4;   // hizmet
+
+                                        // KDV muafiyet bilgilerini belirle
+                    string vatExemptionCode = null;
+                    string reasonForVATExemption = null;
+
+                    if (!kdvVar || kdvOrani == 0)
+                    {
+                        vatExemptionCode = "351";
+                        reasonForVATExemption = "351/KDV-İstisna olmayan Diğer";
+                    }
                     var itemTransaction = new
                     {
                         type = itemType,
@@ -371,12 +381,14 @@ StackTrace: {ex.StackTrace}
                         vatratePercent = Math.Round(kdvOrani, 2),
                         vatamount = kdvTutari,
                         vatbase = kdvsizTutar,
+                        vatexemptionCode = vatExemptionCode,            // ← BURAYA EKLE
+                        reasonforVATExemption = reasonForVATExemption,  // ← BURAYA EKLE
                         amount = kdvsizTutar,
                         netAmount = kdvsizTutar,
                         orderDate = group.FaturaTarihi.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
                         description2 = item.SirketAdi ?? "GİDER"
                     };
-                   itemList.Add(itemTransaction);
+                    itemList.Add(itemTransaction);
                 }
                 if (hatalar.Count > 0)
                 {
@@ -412,6 +424,9 @@ StackTrace: {ex.StackTrace}
                         hour = group.FaturaTarihi.Value.Hour,
                         minute = group.FaturaTarihi.Value.Minute
                     },
+                    vatExemptionCode = toplamKdv == 0 ? "351" : null,               // ← BURAYA EKLE
+                    reasonforVATExemption = toplamKdv == 0
+        ? "351/KDV-İstisna olmayan Diğer" : null,
                     auxCode5 = group.LogoReference ?? "",
                     auxCode = group.ProjeKodu ?? "",
                     documentDate = group.FaturaTarihi.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),

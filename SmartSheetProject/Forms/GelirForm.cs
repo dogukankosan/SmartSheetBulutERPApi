@@ -72,7 +72,7 @@ namespace SmartSheetProject.Forms
                 gridView1.RowStyle += GridView1_RowStyle;
                 gridView1.ColumnFilterChanged += (s, ev) => gridView1.RefreshData();
                 sheetCheckTimer.Start();
-                 await LoadDataAsync();
+               //  await LoadDataAsync();
             }
             catch (Exception ex)
             {

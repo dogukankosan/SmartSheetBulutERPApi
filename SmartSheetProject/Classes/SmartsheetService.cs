@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Smartsheet.Api;
 using Smartsheet.Api.Models;
@@ -342,6 +343,9 @@ namespace SmartSheetProject.Classes
                     string muhasebeOnay = row.Cells.FirstOrDefault(c => c.ColumnId == muhasebeOnayColId)?.Value?.ToString();
                     string yoneticiOnay = row.Cells.FirstOrDefault(c => c.ColumnId == yoneticiOnayColId)?.Value?.ToString();
                     string supervisorOnay = row.Cells.FirstOrDefault(c => c.ColumnId == supervisorApprovalColId)?.Value?.ToString();
+                    if (muhasebeOnay == "Rejected" || yoneticiOnay == "Rejected" || supervisorOnay == "Rejected")
+                        continue;
+
                     if (muhasebeOnay != "Approved" || yoneticiOnay != "Approved" || supervisorOnay != "Approved")
                         continue;
                     ExpenseModel expense = new ExpenseModel
@@ -507,72 +511,39 @@ namespace SmartSheetProject.Classes
         #endregion
 
         public static async Task<(bool Success, int UpdatedCount, string ErrorMessage)> MarkAsTransferredToLogoAsync(
-            string logoReference)
+            List<long> rowIds)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(logoReference))
-                    return (false, 0, "LogoReference boş!");
-
+                if (rowIds == null || rowIds.Count == 0)
+                    return (false, 0, "Row ID listesi boş!");
                 var tokenResult = await GetApiTokenAsync();
                 if (!tokenResult.Success)
                     return (false, 0, tokenResult.ErrorMessage);
-
-                // Önce sheet'i REST API ile çek, row ID'leri gelecek
-                using (var http = new System.Net.Http.HttpClient())
+                long logoyaGonderildiColumnId = 4239569086795652;
+                var rowsToUpdate = rowIds.Select(rowId => new
+                {
+                    id = rowId,
+                    cells = new[]
+                    {
+                new { columnId = logoyaGonderildiColumnId, value = true }
+            }
+                }).ToList();
+                using (HttpClient http = new HttpClient())
                 {
                     http.DefaultRequestHeaders.Add("Authorization", $"Bearer {tokenResult.Token}");
-
-                    // Sheet'ten satırları çek
-                    string getUrl = $"https://api.smartsheet.com/2.0/sheets/{EXPENSES_SHEET_ID}";
-                    var getResponse = await http.GetAsync(getUrl);
-                    string getJson = await getResponse.Content.ReadAsStringAsync();
-
-                    Newtonsoft.Json.Linq.JObject sheetObj = Newtonsoft.Json.Linq.JObject.Parse(getJson);
-                    Newtonsoft.Json.Linq.JArray rows = sheetObj["rows"] as Newtonsoft.Json.Linq.JArray;
-
-                    long logoRefColId = 8320851362140036;
-                    long logoyaGonderildiColumnId = 4239569086795652;
-
-                    List<object> rowsToUpdate = new List<object>();
-                    foreach (var row in rows)
-                    {
-                        long rowId = row["id"].Value<long>();
-                        var cells = row["cells"] as Newtonsoft.Json.Linq.JArray;
-                        var logoCell = cells?.FirstOrDefault(c => c["columnId"]?.Value<long>() == logoRefColId);
-                        string cellValue = logoCell?["value"]?.ToString() ?? logoCell?["displayValue"]?.ToString() ?? "";
-
-                        if (cellValue.Trim() == logoReference.Trim())
-                        {
-                            rowsToUpdate.Add(new
-                            {
-                                id = rowId,
-                                cells = new[]
-                                {
-                            new { columnId = logoyaGonderildiColumnId, value = true }
-                        }
-                            });
-                        }
-                    }
-
-                    if (rowsToUpdate.Count == 0)
-                        return (false, 0, $"'{logoReference}' için satır bulunamadı!");
-
-                    // Güncelle
-                    string putJson = Newtonsoft.Json.JsonConvert.SerializeObject(rowsToUpdate);
-                    var content = new System.Net.Http.StringContent(putJson, System.Text.Encoding.UTF8, "application/json");
+                    string putJson = JsonConvert.SerializeObject(rowsToUpdate);
+                    StringContent content = new StringContent(putJson, System.Text.Encoding.UTF8, "application/json");
                     string putUrl = $"https://api.smartsheet.com/2.0/sheets/{EXPENSES_SHEET_ID}/rows";
-                    var putResponse = await http.PutAsync(putUrl, content);
+                    HttpResponseMessage putResponse = await http.PutAsync(putUrl, content);
                     string putResult = await putResponse.Content.ReadAsStringAsync();
-
                     if (!putResponse.IsSuccessStatusCode)
                     {
                         await TextLog.LogToSQLiteAsync($"❌ Smartsheet PUT hatası: {putResult}");
                         return (false, 0, putResult);
                     }
-
-                    await TextLog.LogToSQLiteAsync($"✅ Smartsheet checkbox güncellendi: {logoReference} - {rowsToUpdate.Count} satır");
-                    return (true, rowsToUpdate.Count, null);
+                    await TextLog.LogToSQLiteAsync($"✅ Smartsheet checkbox güncellendi: {rowIds.Count} satır");
+                    return (true, rowIds.Count, null);
                 }
             }
             catch (Exception ex)

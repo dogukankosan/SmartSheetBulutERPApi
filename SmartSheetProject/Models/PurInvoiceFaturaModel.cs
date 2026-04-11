@@ -16,6 +16,7 @@ namespace SmartSheetProject.Models
         public string PROJE_KODU { get; set; }
         public string PARA_BIRIMI { get; set; }
         public decimal KUR { get; set; }
+ 
         public string FATURA_TIPI { get; set; }
         public decimal FATURA_KDVSIZ_TUTAR { get; set; }
         public decimal KDV_TUTARI { get; set; }
@@ -26,6 +27,7 @@ namespace SmartSheetProject.Models
         public string MALZEME_KODU { get; set; }
         public string MALZEME_ADI { get; set; }
         public decimal MIKTAR { get; set; }
+        public decimal SATIR_KDV_DOVIZ { get; set; }
         public string BIRIM { get; set; }
         public decimal BIRIM_FIYAT { get; set; }
         public decimal SATIR_TOPLAM_TL { get; set; }
@@ -48,6 +50,7 @@ namespace SmartSheetProject.Models
         public string CARI_ACIKLAMASI { get; set; }
         public string PROJE_KODU { get; set; }
         public string PARA_BIRIMI { get; set; }
+        public decimal KDV_TUTARI_DOVIZ { get; set; }
         public decimal KUR { get; set; }
         public string FATURA_TIPI { get; set; }
         public decimal FATURA_KDVSIZ_TUTAR { get; set; }
@@ -66,6 +69,7 @@ namespace SmartSheetProject.Models
         public string MALZEME_ADI { get; set; }
         public string SATIR_ACIKLAMASI { get; set; }
         public decimal MIKTAR { get; set; }
+        public decimal SATIR_KDV_DOVIZ { get; set; }
         public string BIRIM { get; set; }
         public decimal BIRIM_FIYAT { get; set; }
         public decimal SATIR_TOPLAM_TL { get; set; }

@@ -69,7 +69,7 @@ namespace SmartSheetProject.Forms
                 gridView1.SelectionChanged += GridView1_SelectionChanged_UpdateLabel;
                 gridView1.SelectionChanged += GridView1_SelectionChanged;
                 gridView1.CustomDrawCell += GridView1_CustomDrawCell;
-                await LoadDataAsync(applyDateFilter: true);
+              //  await LoadDataAsync(applyDateFilter: true);
             }
             catch (Exception ex)
             {
@@ -506,7 +506,8 @@ namespace SmartSheetProject.Forms
                     {
                         basarili++;
                         logoFaturaNumaralari.Add(grup.LogoReference);
-                        var markResult = await SmartsheetService.MarkAsTransferredToLogoAsync(grup.LogoReference);
+                        var rowIds = grup.Items.Select(i => i.SmartsheetRowId).ToList();
+                        var markResult = await SmartsheetService.MarkAsTransferredToLogoAsync(rowIds);
                         if (!markResult.Success)
                             await TextLog.LogToSQLiteAsync($"⚠️ Checkbox güncellenemedi: {grup.LogoReference} - {markResult.ErrorMessage}");
                     }

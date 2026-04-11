@@ -33,7 +33,7 @@ namespace SmartSheetProject.Forms
                     return;
                 }
                 ConfigureGrid();
-                await LoadDataAsync();
+              //  await LoadDataAsync();
             }
             catch (Exception ex)
             {

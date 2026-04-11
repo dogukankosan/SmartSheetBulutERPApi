@@ -46,7 +46,7 @@ namespace SmartSheetProject.Forms
                 btnGrupla.ItemClick += BtnGrupla_ItemClick;
                 btnGrubuCoz.ItemClick += BtnGrubuCoz_ItemClick;
                 btn_GrpProduct.ItemClick += btn_GrpProduct_ItemClick;
-                await LoadDataAsync();
+               // await LoadDataAsync();
             }
             catch (Exception ex)
             {
@@ -95,12 +95,13 @@ namespace SmartSheetProject.Forms
                 ("PROJE_KODU",             "Proje",              6, 100),
                 ("PARA_BIRIMI",            "Para Birimi",        7,  80),
                 ("KUR",                    "Kur",                8,  75),
-                ("FATURA_KDVSIZ_TUTAR",    "KDV'siz Tutar",      9, 120),
-                ("KDV_TUTARI",             "KDV",               10, 100),
-                ("FATURA_TOPLAM_TUTAR_TL", "Toplam (TL)",       11, 120),
-                ("FATURA_TOPLAM_TUTAR_ID", "Toplam (Döviz)",    12, 120),
-                ("FATURA_ACIKLAMASI",      "Fatura Açıklaması", 13, 250),
-                ("FATURALOGICALREF",       "Fatura ID",         14,  80),
+              ("FATURA_KDVSIZ_TUTAR",    "KDV'siz Tutar",      9, 120),
+("KDV_TUTARI",             "KDV",               10, 100),
+("KDV_TUTARI_DOVIZ",       "KDV (Döviz)",       11, 120),  // ← 11'e çek
+("FATURA_TOPLAM_TUTAR_TL", "Toplam (TL)",       12, 120),
+("FATURA_TOPLAM_TUTAR_ID", "Toplam (Döviz)",    13, 120),
+("FATURA_ACIKLAMASI",      "Fatura Açıklaması", 14, 250),
+("FATURALOGICALREF",       "Fatura ID",         15,  80),
             };
             foreach (var k in kolonlar)
             {
@@ -120,6 +121,11 @@ namespace SmartSheetProject.Forms
                     col.DisplayFormat.FormatType = DevExpress.Utils.FormatType.DateTime;
                     col.DisplayFormat.FormatString = "dd.MM.yyyy";
                 }
+                if (k.Field == "KDV_TUTARI_DOVIZ")
+                {
+                    col.DisplayFormat.FormatType = DevExpress.Utils.FormatType.Numeric;
+                    col.DisplayFormat.FormatString = "N2";
+                }
             }
             foreach (GridColumn col in gridView1.Columns)
             {
@@ -131,7 +137,12 @@ namespace SmartSheetProject.Forms
                     col.SummaryItem.DisplayFormat = "{0:N2} TL";
                 }
             }
-
+            // ConfigureMasterColumns içinde, diğer summary'lerin yanına:
+            if (gridView1.Columns["KDV_TUTARI_DOVIZ"] != null)
+            {
+                gridView1.Columns["KDV_TUTARI_DOVIZ"].SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
+                gridView1.Columns["KDV_TUTARI_DOVIZ"].SummaryItem.DisplayFormat = "{0:N2}";
+            }
             if (gridView1.Columns["FATURA_NO"] != null)
             {
                 gridView1.Columns["FATURA_NO"].SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Count;
@@ -142,44 +153,51 @@ namespace SmartSheetProject.Forms
         {
             var kolonlar = new (string Field, string Caption, int Idx, int Width)[]
             {
-                ("MALZEME_KODU",       "Malzeme Kodu",     0, 150),
-                ("MALZEME_ADI",        "Malzeme Adı",      1, 250),
-                ("SATIR_ACIKLAMASI",   "Satır Açıklaması", 2, 200),
-                ("MIKTAR",             "Miktar",           3,  90),
-                ("BIRIM",              "Birim",            4,  70),
-                ("BIRIM_FIYAT",        "Birim Fiyat (TL)", 5, 120),
-                ("SATIR_TOPLAM_TL",    "Toplam (TL)",      6, 120),
-                ("SATIR_KDV_ORANI",    "KDV %",            7,  65),
-                ("SATIR_KDV_TL",       "KDV (TL)",         8, 110),
-                ("SATIR_DOVIZ",        "Döviz",            9,  70),
-                ("SATIR_KUR",          "Kur",             10,  80),
-                ("SATIR_TOPLAM_DOVIZ", "Toplam (Döviz)",  11, 120),
+        ("MALZEME_KODU",       "Malzeme Kodu",     0, 150),
+        ("MALZEME_ADI",        "Malzeme Adı",      1, 250),
+        ("SATIR_ACIKLAMASI",   "Satır Açıklaması", 2, 200),
+        ("MIKTAR",             "Miktar",           3,  90),
+        ("BIRIM",              "Birim",            4,  70),
+        ("BIRIM_FIYAT",        "Birim Fiyat (TL)", 5, 120),
+        ("SATIR_TOPLAM_TL",    "Toplam (TL)",      6, 120),
+        ("SATIR_KDV_ORANI",    "KDV %",            7,  65),
+        ("SATIR_KDV_TL",       "KDV (TL)",         8, 110),
+        ("SATIR_KDV_DOVIZ",    "KDV (Döviz)",      9, 110),
+        ("SATIR_DOVIZ",        "Döviz",           10,  70),
+        ("SATIR_KUR",          "Kur",             11,  80),
+        ("SATIR_TOPLAM_DOVIZ", "Toplam (Döviz)",  12, 120),
             };
             foreach (var k in kolonlar)
             {
-                GridColumn col = detailView.Columns[k.Field];
+                GridColumn col = detailView.Columns[k.Field];  // ← detailView
                 if (col == null) continue;
                 col.Caption = k.Caption;
-                col.VisibleIndex = k.Idx;
+                col.VisibleIndex = k.Idx;  // ← Idx kullan
                 col.Width = k.Width;
+
                 if (k.Field == "MIKTAR" || k.Field == "BIRIM_FIYAT" ||
                     k.Field == "SATIR_TOPLAM_TL" || k.Field == "SATIR_TOPLAM_DOVIZ" ||
                     k.Field == "SATIR_KDV_TL" || k.Field == "SATIR_KDV_ORANI" ||
-                    k.Field == "SATIR_KUR")
+                    k.Field == "SATIR_KUR" || k.Field == "SATIR_KDV_DOVIZ")
                 {
                     col.DisplayFormat.FormatType = DevExpress.Utils.FormatType.Numeric;
                     col.DisplayFormat.FormatString = "N2";
                 }
-            }
-            if (detailView.Columns["SATIR_TOPLAM_TL"] != null)
-            {
-                detailView.Columns["SATIR_TOPLAM_TL"].SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
-                detailView.Columns["SATIR_TOPLAM_TL"].SummaryItem.DisplayFormat = "{0:N2} TL";
-            }
-            if (detailView.Columns["SATIR_KDV_TL"] != null)
-            {
-                detailView.Columns["SATIR_KDV_TL"].SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
-                detailView.Columns["SATIR_KDV_TL"].SummaryItem.DisplayFormat = "{0:N2} TL";
+                if (k.Field == "SATIR_TOPLAM_TL")
+                {
+                    col.SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
+                    col.SummaryItem.DisplayFormat = "{0:N2} TL";
+                }
+                if (k.Field == "SATIR_KDV_TL")
+                {
+                    col.SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
+                    col.SummaryItem.DisplayFormat = "{0:N2} TL";
+                }
+                if (k.Field == "SATIR_KDV_DOVIZ")
+                {
+                    col.SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
+                    col.SummaryItem.DisplayFormat = "{0:N2}";
+                }
             }
         }
         #endregion
@@ -327,6 +345,10 @@ CASE WHEN MMT.TCTYPE = 0  THEN 'TL'
      WHEN MMT.TCTYPE = 1  THEN 'USD'
      WHEN MMT.TCTYPE = 20 THEN 'EURO'
      ELSE 'DIGER' END AS SATIR_DOVIZ,
+CASE WHEN MMT.TCRATE > 0 
+     THEN ROUND(MMT.VATAMNT / MMT.TCRATE, 2)
+     ELSE 0 
+END AS SATIR_KDV_DOVIZ,
 MMT.TCRATE  AS SATIR_KUR,
 MMT.VATRATE AS SATIR_KDV_ORANI,
 CASE WHEN INV.SLIPTYPE = 6 THEN -MMT.VATAMNT ELSE MMT.VATAMNT END AS SATIR_KDV_TL,
@@ -384,6 +406,7 @@ LIMIT {limit} OFFSET {offset}";
                         FATURA_ACIKLAMASI = SafeVal<string>(dict, "FATURA_ACIKLAMASI", ""),
                         MALZEME_KODU = SafeVal<string>(dict, "MALZEME_KODU", ""),
                         MALZEME_ADI = SafeVal<string>(dict, "MALZEME_ADI", ""),
+                        SATIR_KDV_DOVIZ = SafeVal<decimal>(dict, "SATIR_KDV_DOVIZ", 0m),
                         MIKTAR = SafeVal<decimal>(dict, "MIKTAR", 0m),
                         BIRIM = SafeVal<string>(dict, "BIRIM", ""),
                         BIRIM_FIYAT = SafeVal<decimal>(dict, "BIRIM_FIYAT", 0m),
@@ -419,6 +442,7 @@ LIMIT {limit} OFFSET {offset}";
                         CARI_KODU = ilk.CARI_KODU,
                         CARI_ACIKLAMASI = ilk.CARI_ACIKLAMASI,
                         PROJE_KODU = ilk.PROJE_KODU,
+                        KDV_TUTARI_DOVIZ = g.Sum(s => s.SATIR_KDV_DOVIZ),
                         PARA_BIRIMI = ilk.PARA_BIRIMI,
                         KUR = ilk.KUR,
                         FATURA_TIPI = ilk.FATURA_TIPI,
@@ -435,6 +459,7 @@ LIMIT {limit} OFFSET {offset}";
                             MIKTAR = s.MIKTAR,
                             BIRIM = s.BIRIM,
                             BIRIM_FIYAT = s.BIRIM_FIYAT,
+                            SATIR_KDV_DOVIZ = s.SATIR_KDV_DOVIZ,
                             SATIR_TOPLAM_TL = s.SATIR_TOPLAM_TL,
                             SATIR_TOPLAM_DOVIZ = s.SATIR_TOPLAM_DOVIZ,
                             SATIR_DOVIZ = s.SATIR_DOVIZ,
@@ -460,6 +485,7 @@ LIMIT {limit} OFFSET {offset}";
             masterTable.Columns.Add("PROJE_KODU", typeof(string));
             masterTable.Columns.Add("PARA_BIRIMI", typeof(string));
             masterTable.Columns.Add("KUR", typeof(decimal));
+            masterTable.Columns.Add("KDV_TUTARI_DOVIZ", typeof(decimal));
             masterTable.Columns.Add("FATURA_TIPI", typeof(string));
             masterTable.Columns.Add("FATURA_KDVSIZ_TUTAR", typeof(decimal));
             masterTable.Columns.Add("KDV_TUTARI", typeof(decimal));
@@ -478,9 +504,11 @@ LIMIT {limit} OFFSET {offset}";
             detailTable.Columns.Add("SATIR_TOPLAM_TL", typeof(decimal));
             detailTable.Columns.Add("SATIR_KDV_ORANI", typeof(decimal));
             detailTable.Columns.Add("SATIR_KDV_TL", typeof(decimal));
+            detailTable.Columns.Add("SATIR_KDV_DOVIZ", typeof(decimal));  // ← BURAYA
             detailTable.Columns.Add("SATIR_DOVIZ", typeof(string));
             detailTable.Columns.Add("SATIR_KUR", typeof(decimal));
             detailTable.Columns.Add("SATIR_TOPLAM_DOVIZ", typeof(decimal));
+
             ds.Tables.Add(detailTable);
             ds.Relations.Add("Detaylar",
                 masterTable.Columns["FATURALOGICALREF"],
@@ -495,6 +523,7 @@ LIMIT {limit} OFFSET {offset}";
                 mr["CARI_KODU"] = f.CARI_KODU ?? "";
                 mr["CARI_ACIKLAMASI"] = f.CARI_ACIKLAMASI ?? "";
                 mr["PROJE_KODU"] = f.PROJE_KODU ?? "";
+                mr["KDV_TUTARI_DOVIZ"] = f.KDV_TUTARI_DOVIZ;
                 mr["PARA_BIRIMI"] = f.PARA_BIRIMI ?? "";
                 mr["KUR"] = f.KUR;
                 mr["FATURA_TIPI"] = f.FATURA_TIPI ?? "";
@@ -513,6 +542,7 @@ LIMIT {limit} OFFSET {offset}";
                     dr["SATIR_ACIKLAMASI"] = d.SATIR_ACIKLAMASI ?? "";
                     dr["MIKTAR"] = d.MIKTAR;
                     dr["BIRIM"] = d.BIRIM ?? "";
+                    dr["SATIR_KDV_DOVIZ"] = d.SATIR_KDV_DOVIZ;
                     dr["BIRIM_FIYAT"] = d.BIRIM_FIYAT;
                     dr["SATIR_TOPLAM_TL"] = d.SATIR_TOPLAM_TL;
                     dr["SATIR_KDV_ORANI"] = d.SATIR_KDV_ORANI;
@@ -826,14 +856,14 @@ LIMIT {limit} OFFSET {offset}";
         {
             var ws = wb.Worksheets.Add("Fatura Detayları");
             string[] headers =
-            {
-                "Fatura Tipi", "Fatura No", "Tarih", "Vade Tarihi", "Cari Kodu", "Cari Adı",
-                "Proje", "Para Birimi", "Fatura Kur", "Fatura KDV'siz", "Fatura KDV",
-                "Fatura Toplam TL", "Fatura Toplam Döviz", "Fatura Açıklaması",
-                "Malzeme Kodu", "Malzeme Adı", "Satır Açıklaması", "Miktar", "Birim",
-                "Birim Fiyat TL", "Satır Toplam TL", "KDV Oranı %", "KDV TL",
-                "Satır Döviz", "Satır Kur", "Satır Toplam Döviz"
-            };
+   {
+    "Fatura Tipi", "Fatura No", "Tarih", "Vade Tarihi", "Cari Kodu", "Cari Adı",
+    "Proje", "Para Birimi", "Fatura Kur", "Fatura KDV'siz", "Fatura KDV", "Fatura KDV (Döviz)",
+    "Fatura Toplam TL", "Fatura Toplam Döviz", "Fatura Açıklaması",
+    "Malzeme Kodu", "Malzeme Adı", "Satır Açıklaması", "Miktar", "Birim",
+    "Birim Fiyat TL", "Satır Toplam TL", "KDV Oranı %", "KDV TL", "KDV (Döviz)",
+    "Satır Döviz", "Satır Kur", "Satır Toplam Döviz"
+};
             // Başlık satırı
             for (int c = 0; c < headers.Length; c++)
             {
@@ -855,34 +885,36 @@ LIMIT {limit} OFFSET {offset}";
                         ? XLColor.FromArgb(255, 230, 230) // iade satırları açık kırmızı
                         : XLColor.NoColor;
                     object[] vals =
-                    {
-                        f.FATURA_TIPI ?? "",
-                        f.FATURA_NO   ?? "",
-                        f.TARIHI.HasValue            ? f.TARIHI.Value.ToString("dd.MM.yyyy")            : "",
-                        f.FATURA_VADE_TARIHI.HasValue ? f.FATURA_VADE_TARIHI.Value.ToString("dd.MM.yyyy") : "",
-                        f.CARI_KODU         ?? "",
-                        f.CARI_ACIKLAMASI   ?? "",
-                        f.PROJE_KODU        ?? "",
-                        f.PARA_BIRIMI       ?? "",
-                        (double)f.KUR,
-                        (double)f.FATURA_KDVSIZ_TUTAR,
-                        (double)f.KDV_TUTARI,
-                        (double)f.FATURA_TOPLAM_TUTAR_TL,
-                        (double)f.FATURA_TOPLAM_TUTAR_ID,
-                        f.FATURA_ACIKLAMASI ?? "",
-                        d.MALZEME_KODU      ?? "",
-                        d.MALZEME_ADI       ?? "",
-                        d.SATIR_ACIKLAMASI  ?? "",
-                        (double)d.MIKTAR,
-                        d.BIRIM             ?? "",
-                        (double)d.BIRIM_FIYAT,
-                        (double)d.SATIR_TOPLAM_TL,
-                        (double)d.SATIR_KDV_ORANI,
-                        (double)d.SATIR_KDV_TL,
-                        d.SATIR_DOVIZ       ?? "",
-                        (double)d.SATIR_KUR,
-                        (double)d.SATIR_TOPLAM_DOVIZ,
-                    };
+     {
+    f.FATURA_TIPI ?? "",
+    f.FATURA_NO   ?? "",
+    f.TARIHI.HasValue ? f.TARIHI.Value.ToString("dd.MM.yyyy") : "",
+    f.FATURA_VADE_TARIHI.HasValue ? f.FATURA_VADE_TARIHI.Value.ToString("dd.MM.yyyy") : "",
+    f.CARI_KODU         ?? "",
+    f.CARI_ACIKLAMASI   ?? "",
+    f.PROJE_KODU        ?? "",
+    f.PARA_BIRIMI       ?? "",
+    (double)f.KUR,                        // "Fatura Kur"
+    (double)f.FATURA_KDVSIZ_TUTAR,        // "Fatura KDV'siz"
+    (double)f.KDV_TUTARI,                 // "Fatura KDV"
+    (double)f.KDV_TUTARI_DOVIZ,           // "Fatura KDV (Döviz)"
+    (double)f.FATURA_TOPLAM_TUTAR_TL,     // "Fatura Toplam TL"
+    (double)f.FATURA_TOPLAM_TUTAR_ID,     // "Fatura Toplam Döviz"
+    f.FATURA_ACIKLAMASI ?? "",            // "Fatura Açıklaması"
+    d.MALZEME_KODU      ?? "",
+    d.MALZEME_ADI       ?? "",
+    d.SATIR_ACIKLAMASI  ?? "",
+    (double)d.MIKTAR,
+    d.BIRIM             ?? "",
+    (double)d.BIRIM_FIYAT,
+    (double)d.SATIR_TOPLAM_TL,
+    (double)d.SATIR_KDV_ORANI,
+    (double)d.SATIR_KDV_TL,              // "KDV TL"
+    (double)d.SATIR_KDV_DOVIZ,           // "KDV (Döviz)"
+    d.SATIR_DOVIZ       ?? "",
+    (double)d.SATIR_KUR,
+    (double)d.SATIR_TOPLAM_DOVIZ,
+};
                     for (int c = 0; c < vals.Length; c++)
                     {
                         var cell = ws.Cell(row, c + 1);
@@ -975,6 +1007,7 @@ LIMIT {limit} OFFSET {offset}";
             dt.Columns.Add("SATIR_TOPLAM_TL", typeof(decimal));
             dt.Columns.Add("SATIR_KDV_ORANI", typeof(decimal));
             dt.Columns.Add("SATIR_KDV_TL", typeof(decimal));
+            dt.Columns.Add("SATIR_KDV_DOVIZ", typeof(decimal));  // ← SATIR_KDV_TL'nin hemen ardına
             dt.Columns.Add("SATIR_DOVIZ", typeof(string));
             dt.Columns.Add("SATIR_KUR", typeof(decimal));
             dt.Columns.Add("SATIR_TOPLAM_DOVIZ", typeof(decimal));
@@ -995,6 +1028,7 @@ LIMIT {limit} OFFSET {offset}";
                     row["BIRIM_FIYAT"] = d.BIRIM_FIYAT;
                     row["SATIR_TOPLAM_TL"] = d.SATIR_TOPLAM_TL;
                     row["SATIR_KDV_ORANI"] = d.SATIR_KDV_ORANI;
+                    row["SATIR_KDV_DOVIZ"] = d.SATIR_KDV_DOVIZ;
                     row["SATIR_KDV_TL"] = d.SATIR_KDV_TL;
                     row["SATIR_DOVIZ"] = d.SATIR_DOVIZ ?? "";
                     row["SATIR_KUR"] = d.SATIR_KUR;
@@ -1012,25 +1046,30 @@ LIMIT {limit} OFFSET {offset}";
             gridView1.Columns.Clear();
             gridControl1.DataSource = dt;
             gridView1.PopulateColumns();
+            // Tüm kolonları önce gizle
+            foreach (GridColumn col in gridView1.Columns)
+                col.VisibleIndex = -1;
+            // Sonra sırayla görünür yap
             var kolonlar = new (string Field, string Caption, int Width)[]
             {
-        ("MALZEME_KODU",       "Malzeme Kodu",     130),
-        ("MALZEME_ADI",        "Malzeme Adı",      250),
-        ("SATIR_ACIKLAMASI",   "Satır Açıklaması", 200),
-        ("FATURA_NO",          "Fatura No",        150),
-        ("TARIHI",             "Tarih",             90),
-        ("CARI_ACIKLAMASI",    "Cari Adı",         200),
-        ("FATURA_TIPI",        "Fatura Tipi",      130),
-        ("PROJE_KODU",         "Proje",            100),
-        ("MIKTAR",             "Miktar",            80),
-        ("BIRIM",              "Birim",             60),
-        ("BIRIM_FIYAT",        "Birim Fiyat",      110),
-        ("SATIR_TOPLAM_TL",    "Toplam TL",        110),
-        ("SATIR_KDV_ORANI",    "KDV %",             60),
-        ("SATIR_KDV_TL",       "KDV TL",           100),
-        ("SATIR_DOVIZ",        "Döviz",             60),
-        ("SATIR_KUR",          "Kur",               75),
-        ("SATIR_TOPLAM_DOVIZ", "Toplam Döviz",     110),
+    ("MALZEME_KODU",       "Malzeme Kodu",     130),
+    ("MALZEME_ADI",        "Malzeme Adı",      250),
+    ("SATIR_ACIKLAMASI",   "Satır Açıklaması", 200),
+    ("FATURA_NO",          "Fatura No",        150),
+    ("TARIHI",             "Tarih",             90),
+    ("CARI_ACIKLAMASI",    "Cari Adı",         200),
+    ("FATURA_TIPI",        "Fatura Tipi",      130),
+    ("PROJE_KODU",         "Proje",            100),
+    ("MIKTAR",             "Miktar",            80),
+    ("BIRIM",              "Birim",             60),
+    ("BIRIM_FIYAT",        "Birim Fiyat",      110),
+    ("SATIR_TOPLAM_TL",    "Toplam TL",        110),
+    ("SATIR_KDV_ORANI",    "KDV %",             60),
+    ("SATIR_KDV_TL",       "KDV TL",           100),
+    ("SATIR_KDV_DOVIZ",    "KDV (Döviz)",      100),
+    ("SATIR_DOVIZ",        "Döviz",             60),
+    ("SATIR_KUR",          "Kur",               75),
+    ("SATIR_TOPLAM_DOVIZ", "Toplam Döviz",     110),
             };
             int idx = 0;
             foreach (var k in kolonlar)
@@ -1038,12 +1077,12 @@ LIMIT {limit} OFFSET {offset}";
                 GridColumn col = gridView1.Columns[k.Field];
                 if (col == null) continue;
                 col.Caption = k.Caption;
-                col.VisibleIndex = idx++;
                 col.Width = k.Width;
+                col.VisibleIndex = idx++;
                 if (k.Field == "MIKTAR" || k.Field == "BIRIM_FIYAT" ||
-                    k.Field == "SATIR_TOPLAM_TL" || k.Field == "SATIR_TOPLAM_DOVIZ" ||
-                    k.Field == "SATIR_KDV_TL" || k.Field == "SATIR_KDV_ORANI" ||
-                    k.Field == "SATIR_KUR")
+         k.Field == "SATIR_TOPLAM_TL" || k.Field == "SATIR_TOPLAM_DOVIZ" ||
+         k.Field == "SATIR_KDV_TL" || k.Field == "SATIR_KDV_ORANI" ||
+         k.Field == "SATIR_KUR" || k.Field == "SATIR_KDV_DOVIZ")  // ← EKLE
                 {
                     col.DisplayFormat.FormatType = DevExpress.Utils.FormatType.Numeric;
                     col.DisplayFormat.FormatString = "N2";
@@ -1063,6 +1102,11 @@ LIMIT {limit} OFFSET {offset}";
             {
                 gridView1.Columns["SATIR_KDV_TL"].SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
                 gridView1.Columns["SATIR_KDV_TL"].SummaryItem.DisplayFormat = "{0:N2} TL";
+            }
+            if (gridView1.Columns["SATIR_KDV_DOVIZ"] != null)
+            {
+                gridView1.Columns["SATIR_KDV_DOVIZ"].SummaryItem.SummaryType = DevExpress.Data.SummaryItemType.Sum;
+                gridView1.Columns["SATIR_KDV_DOVIZ"].SummaryItem.DisplayFormat = "{0:N2}";
             }
             // Malzeme adına göre grupla
             gridView1.OptionsView.ShowGroupPanel = true;
