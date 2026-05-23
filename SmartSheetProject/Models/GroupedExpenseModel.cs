@@ -11,8 +11,10 @@ namespace SmartSheetProject.Models
         public string SirketAdi { get; set; }
         public string FaturaAciklamasi { get; set; }
         public string ProjeKodu { get; set; }
+        public string CariDoviz { get; set; }
         public string DovizTuru { get; set; }
         public decimal ToplamTutar { get; set; }
+        public string PaymentType { get; set; }
         public string LogoReference { get; set; }
         public List<ExpenseModel> Items { get; set; } = new List<ExpenseModel>();
         // Cari bilgileri

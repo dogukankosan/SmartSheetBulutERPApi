@@ -309,14 +309,9 @@ namespace SmartSheetProject.Classes
                 var tokenResult = await GetApiTokenAsync();
                 if (!tokenResult.Success)
                     return (false, null, tokenResult.ErrorMessage);
-                SmartsheetClient smartsheet = new SmartsheetBuilder()
-                    .SetAccessToken(tokenResult.Token)
-                    .Build();
-                Sheet sheet = await Task.Run(() =>
-                    smartsheet.SheetResources.GetSheet(EXPENSES_SHEET_ID, null, null, null, null, null, null, null)
-                );
+
                 List<ExpenseModel> allExpenses = new List<ExpenseModel>();
-                // Column ID'ler
+
                 long uidColId = 158077037531012;
                 long kayitTarihiColId = 4661676664901508;
                 long kayitEdenColId = 2409876851216260;
@@ -337,55 +332,89 @@ namespace SmartSheetProject.Classes
                 long supervisorApprovalColId = 1565451921084292;
                 long archiveColId = 3817251734769540;
                 long logoRefColId = 8320851362140036;
-                foreach (var row in sheet.Rows)
+                long paymentTypeColId = 1283976944373636;
+                using (HttpClient http = new HttpClient())
                 {
-                    // 3 onay kontrolü
-                    string muhasebeOnay = row.Cells.FirstOrDefault(c => c.ColumnId == muhasebeOnayColId)?.Value?.ToString();
-                    string yoneticiOnay = row.Cells.FirstOrDefault(c => c.ColumnId == yoneticiOnayColId)?.Value?.ToString();
-                    string supervisorOnay = row.Cells.FirstOrDefault(c => c.ColumnId == supervisorApprovalColId)?.Value?.ToString();
-                    if (muhasebeOnay == "Rejected" || yoneticiOnay == "Rejected" || supervisorOnay == "Rejected")
-                        continue;
+                    http.DefaultRequestHeaders.Add("Authorization", $"Bearer {tokenResult.Token}");
+                    string getUrl = $"https://api.smartsheet.com/2.0/sheets/{EXPENSES_SHEET_ID}";
+                    HttpResponseMessage getResponse = await http.GetAsync(getUrl);
+                    string getJson = await getResponse.Content.ReadAsStringAsync();
 
-                    if (muhasebeOnay != "Approved" || yoneticiOnay != "Approved" || supervisorOnay != "Approved")
-                        continue;
-                    ExpenseModel expense = new ExpenseModel
+                    if (!getResponse.IsSuccessStatusCode)
                     {
-                        SmartsheetRowId = row.Id.HasValue ? row.Id.Value : 0,
-                        UID = row.Cells.FirstOrDefault(c => c.ColumnId == uidColId)?.Value?.ToString(),
-                        KayitEdenKullanici = row.Cells.FirstOrDefault(c => c.ColumnId == kayitEdenColId)?.Value?.ToString(),
-                        SirketAdi = row.Cells.FirstOrDefault(c => c.ColumnId == sirketAdiColId)?.Value?.ToString(),
-                        FaturaNo = row.Cells.FirstOrDefault(c => c.ColumnId == faturaNoColId)?.Value?.ToString(),
-                        ProjeKodu = row.Cells.FirstOrDefault(c => c.ColumnId == projeKoduColId)?.Value?.ToString(),
-                        FaturaAciklamasi = row.Cells.FirstOrDefault(c => c.ColumnId == faturaAciklamaColId)?.Value?.ToString(),
-                        DovizTuru = row.Cells.FirstOrDefault(c => c.ColumnId == dovizTuruColId)?.Value?.ToString(),
-                        MalzemeListesi = row.Cells.FirstOrDefault(c => c.ColumnId == malzemeListesiColId)?.Value?.ToString(),
-                        KDV = row.Cells.FirstOrDefault(c => c.ColumnId == kdvColId)?.Value?.ToString(),
-                        MuhasebeOnay = muhasebeOnay,
-                        SupervisorApproval = supervisorOnay,
-                        YoneticiOnay = yoneticiOnay,
-                        LogoReference = row.Cells.FirstOrDefault(c => c.ColumnId == logoRefColId)?.Value?.ToString()
-                    }; 
-                    // Tarih parse
-                    if (DateTime.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == kayitTarihiColId)?.Value?.ToString(), out DateTime kayitTarihi))
-                        expense.KayitTarihi = kayitTarihi;
-                    if (DateTime.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == faturaTarihiColId)?.Value?.ToString(), out DateTime faturaTarihi))
-                        expense.FaturaTarihi = faturaTarihi;
-                    // Decimal parse
-                    if (decimal.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == amountColId)?.Value?.ToString(), out decimal amount))
-                        expense.Amount = amount;
-                    if (decimal.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == kdvOraniColId)?.Value?.ToString(), out decimal kdvOrani))
-                        expense.KDVOrani = kdvOrani;
-                    if (decimal.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == birimFiyatColId)?.Value?.ToString(), out decimal birimFiyat))
-                        expense.BirimFiyat = birimFiyat;
-                    if (decimal.TryParse(row.Cells.FirstOrDefault(c => c.ColumnId == satirToplamColId)?.Value?.ToString(), out decimal satirToplam))
-                        expense.SatirToplamTutar = satirToplam;
-                    var archiveCell = row.Cells.FirstOrDefault(c => c.ColumnId == archiveColId);
-                    expense.Archive = archiveCell?.Value?.ToString()?.ToLower() == "true";
-                    allExpenses.Add(expense);
+                        await TextLog.LogToSQLiteAsync($"❌ Smartsheet sheet çekme hatası: {getJson}");
+                        return (false, null, $"Smartsheet sheet çekme hatası: {getResponse.StatusCode}");
+                    }
+
+                    JObject sheetObj = JObject.Parse(getJson);
+                    JArray rows = sheetObj["rows"] as JArray ?? new JArray();
+
+                    foreach (var row in rows)
+                    {
+                        long rowId = row["id"]?.Value<long>() ?? 0;
+                        JArray cells = row["cells"] as JArray ?? new JArray();
+                        string GetCellValue(long columnId)
+                        {
+                            var token = cells.FirstOrDefault(c => c["columnId"]?.Value<long>() == columnId)?["value"];
+                            if (token == null) return null;
+
+                            if (token.Type == JTokenType.Float || token.Type == JTokenType.Integer)
+                                return token.Value<double>().ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+                            // String ise virgülü noktaya çevir
+                            return token.ToString().Replace(",", ".");
+                        }
+                        string muhasebeOnay = GetCellValue(muhasebeOnayColId);
+                        string yoneticiOnay = GetCellValue(yoneticiOnayColId);
+                        string supervisorOnay = GetCellValue(supervisorApprovalColId);
+
+                        if (muhasebeOnay == "Rejected" || yoneticiOnay == "Rejected" || supervisorOnay == "Rejected")
+                            continue;
+                        if (muhasebeOnay != "Approved" || yoneticiOnay != "Approved" || supervisorOnay != "Approved")
+                            continue;
+
+                        ExpenseModel expense = new ExpenseModel
+                        {
+                            SmartsheetRowId = rowId,
+                            UID = GetCellValue(uidColId),
+                            KayitEdenKullanici = GetCellValue(kayitEdenColId),
+                            SirketAdi = GetCellValue(sirketAdiColId),
+                            FaturaNo = GetCellValue(faturaNoColId),
+                            ProjeKodu = GetCellValue(projeKoduColId),
+                            FaturaAciklamasi = GetCellValue(faturaAciklamaColId),
+                            DovizTuru = GetCellValue(dovizTuruColId),
+                            MalzemeListesi = GetCellValue(malzemeListesiColId),
+                            KDV = GetCellValue(kdvColId),
+                            MuhasebeOnay = muhasebeOnay,
+                            SupervisorApproval = supervisorOnay,
+                            YoneticiOnay = yoneticiOnay,
+                            LogoReference = GetCellValue(logoRefColId)  ,
+                            PaymentType = GetCellValue(paymentTypeColId)  // ← EKLENDİ
+                        };
+
+                        if (DateTime.TryParse(GetCellValue(kayitTarihiColId), out DateTime kayitTarihi))
+                            expense.KayitTarihi = kayitTarihi;
+                        if (DateTime.TryParse(GetCellValue(faturaTarihiColId), out DateTime faturaTarihi))
+                            expense.FaturaTarihi = faturaTarihi;
+                        if (decimal.TryParse(GetCellValue(amountColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal amount))
+                            expense.Amount = amount;
+                        if (decimal.TryParse(GetCellValue(kdvOraniColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal kdvOrani))
+                            expense.KDVOrani = kdvOrani;
+                        if (decimal.TryParse(GetCellValue(birimFiyatColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal birimFiyat))
+                            expense.BirimFiyat = birimFiyat;
+                        if (decimal.TryParse(GetCellValue(satirToplamColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal satirToplam))
+                            expense.SatirToplamTutar = satirToplam;
+
+                        string archiveVal = GetCellValue(archiveColId);
+                        expense.Archive = archiveVal?.ToLower() == "true";
+
+                        allExpenses.Add(expense);
+                    }
                 }
+
                 // GRUPLAMA
                 var grouped = allExpenses
-                    .GroupBy(e => e.LogoReference?.Trim() ?? "")   // ← SADECE BU, başka hiçbir şey
+                    .GroupBy(e => e.LogoReference?.Trim() ?? "")
                     .Select(g => new GroupedExpenseModel
                     {
                         LogoReference = g.Key,
@@ -396,44 +425,132 @@ namespace SmartSheetProject.Classes
                         SirketAdi = g.First().SirketAdi,
                         ProjeKodu = g.First().ProjeKodu,
                         DovizTuru = g.First().DovizTuru,
+                        PaymentType = g.First().PaymentType,  // ← EKLENDİ
                         Items = g.ToList(),
                         ToplamTutar = g.Sum(x => x.SatirToplamTutar ?? 0)
                     })
                     .ToList();
-                // Malzeme ve PROJE KODU validasyonu
+
+                // ── BULK EMAIL → CARİ KODU ────────────────────────────────────────
+                List<string> emailler = grouped
+                    .Select(g => g.KayitEdenKullanici?.Trim() ?? "")
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Distinct()
+                    .ToList();
+
+                Dictionary<string, (string CariKodu, string Doviz)> emailCariMap =
+                    new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+
+                if (emailler.Count > 0)
+                {
+                    var bulkCari = await BulutERPService.GetCariKodulariBulkAsync(emailler);
+                    if (bulkCari.Success)
+                        emailCariMap = bulkCari.EmailCariMap;
+                    else
+                        await TextLog.LogToSQLiteAsync($"❌ Bulk cari sorgusu hatası: {bulkCari.ErrorMessage}");
+                }
+
+                // ── BULK MALZEME SORGUSU ──────────────────────────────────────────
+                List<string> malzemeKodlari = grouped
+                    .SelectMany(g => g.Items)
+                    .Select(i => {
+                        string kod = i.MalzemeListesi ?? "";
+                        if (kod.Contains("---"))
+                            kod = kod.Split(new[] { "---" }, StringSplitOptions.None)[0].Trim();
+                        return kod;
+                    })
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Distinct()
+                    .ToList();
+
+                Dictionary<string, int> malzemeMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                if (malzemeKodlari.Count > 0)
+                {
+                    var bulkMalzeme = await BulutERPService.GetMalzemeCardTypeBulkAsync(malzemeKodlari);
+                    if (bulkMalzeme.Success)
+                        malzemeMap = bulkMalzeme.MalzemeMap;
+                    else
+                        await TextLog.LogToSQLiteAsync($"❌ Bulk malzeme sorgusu hatası: {bulkMalzeme.ErrorMessage}");
+                }
+
+                // ── BULK PROJE KODU SORGUSU ───────────────────────────────────────
+                List<string> projeKodlari = grouped
+                    .Select(g => g.ProjeKodu?.Trim() ?? "")
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Distinct()
+                    .ToList();
+
+                HashSet<string> gecerliProjeler = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (projeKodlari.Count > 0)
+                {
+                    var bulkProje = await BulutERPService.GetProjeKoduBulkAsync(projeKodlari);
+                    if (bulkProje.Success)
+                        gecerliProjeler = bulkProje.GecerliProjeler;
+                    else
+                        await TextLog.LogToSQLiteAsync($"❌ Bulk proje kodu sorgusu hatası: {bulkProje.ErrorMessage}");
+                }
+
+                // ── VALİDASYON ────────────────────────────────────────────────────
                 foreach (GroupedExpenseModel grup in grouped)
                 {
                     HashSet<string> malzemeHatalari = new HashSet<string>();
-                    // 🔴 PROJE KODU KONTROLÜ (Grup seviyesinde - tüm satırlar aynı proje koduna sahip)
-                    // ✅ LOGO REFERENCE KONTROLÜ - YENİ
+
                     if (string.IsNullOrWhiteSpace(grup.LogoReference))
                         malzemeHatalari.Add("LOGO Accounting Reference # boş - bu satırlar hangi fişe ait bilinemiyor");
-                    string projeKodu = grup.ProjeKodu?.Trim() ?? "";
-                    if (!string.IsNullOrWhiteSpace(projeKodu))
+
+                    // Cari kodu ve döviz eşleşme kontrolü
+                    string email = grup.KayitEdenKullanici?.Trim() ?? "";
+                    if (string.IsNullOrWhiteSpace(email))
                     {
-                        var projeResult = await BulutERPService.CheckProjeKoduExistsAsync(projeKodu);
-                        if (!projeResult.Success || !projeResult.Exists)
-                        {
-                            malzemeHatalari.Add($"Proje Kodu '{projeKodu}' Logo'da bulunamadı");
-                        }
+                        malzemeHatalari.Add("Email adresi boş!");
                     }
-                    // Malzeme kontrolleri (her satır için)
+                    else if (emailCariMap.TryGetValue(email, out var cariInfo))
+                    {
+                        string smartsheetDoviz = grup.DovizTuru?.Trim().ToUpper() ?? "TRY";
+                        string cariDoviz = cariInfo.Doviz;
+
+                        bool eslesme = false;
+                        if (smartsheetDoviz == "TRY" && cariDoviz == "TRY")
+                            eslesme = true;
+                        else if (smartsheetDoviz == "USD" && cariDoviz == "USD")
+                            eslesme = true;
+                        else if (smartsheetDoviz == "EURO" && cariDoviz == "EURO")
+                            eslesme = true;
+
+                        if (eslesme)
+                        {
+                            grup.CariKodu = cariInfo.CariKodu;
+                            grup.CariDoviz = cariDoviz;
+                        }
+                        else
+                            malzemeHatalari.Add($"Fatura dövizi '{smartsheetDoviz}' ile cari dövizi '{cariDoviz}' uyuşmuyor! Lütfen Logo'da doğru cari kartını kullanın.");
+                    }
+                    else
+                    {
+                        malzemeHatalari.Add($"Logo'da '{email}' email adresli cari bulunamadı. Lütfen Logo'da EMAIL alanını doldurun!");
+                    }
+
+                    // Proje kodu kontrolü
+                    string projeKodu = grup.ProjeKodu?.Trim() ?? "";
+                    if (!string.IsNullOrWhiteSpace(projeKodu) && !gecerliProjeler.Contains(projeKodu))
+                        malzemeHatalari.Add($"Proje Kodu '{projeKodu}' Logo'da bulunamadı");
+
+                    // Malzeme kontrolleri
                     foreach (ExpenseModel item in grup.Items)
                     {
                         string malzemeKodu = item.MalzemeListesi ?? "";
                         if (malzemeKodu.Contains("---"))
                             malzemeKodu = malzemeKodu.Split(new[] { "---" }, StringSplitOptions.None)[0].Trim();
+
                         if (string.IsNullOrWhiteSpace(malzemeKodu))
                             malzemeHatalari.Add("Malzeme seçilmemiş");
-                        else
-                        {
-                            var malzemeResult = await BulutERPService.GetMalzemeCardTypeAsync(malzemeKodu);
-                            if (!malzemeResult.Success)
-                                malzemeHatalari.Add($"Malzeme '{malzemeKodu}' Logo'da yok");
-                        }
+                        else if (!malzemeMap.ContainsKey(malzemeKodu))
+                            malzemeHatalari.Add($"Malzeme '{malzemeKodu}' Logo'da yok");
                     }
+
                     grup.MalzemeHatalari = malzemeHatalari.ToList();
                 }
+
                 return (true, grouped, null);
             }
             catch (Exception ex)
@@ -442,85 +559,22 @@ namespace SmartSheetProject.Classes
                 return (false, null, ex.Message);
             }
         }
-        public static async Task<(bool IsValid, List<string> Errors)> ValidateExpenseAsync(ExpenseModel expense)
-        {
-            List<string> hatalar = new List<string>();
-            // Fatura No kontrolü
-            if (string.IsNullOrWhiteSpace(expense.FaturaNo))
-                hatalar.Add("Fatura No boş");
-            // Fatura Tarihi kontrolü
-            if (!expense.FaturaTarihi.HasValue || expense.FaturaTarihi.Value == DateTime.MinValue)
-                hatalar.Add("Fatura Tarihi geçersiz");
-            if (string.IsNullOrWhiteSpace(expense.LogoReference))
-                hatalar.Add("LOGO Accounting Reference boş olamaz");
-            // 🔴 PROJE KODU KONTROLÜ
-            string projeKodu = expense.ProjeKodu?.Trim() ?? "";
-            if (!string.IsNullOrWhiteSpace(projeKodu))
-            {
-                var projeResult = await BulutERPService.CheckProjeKoduExistsAsync(projeKodu);
-                if (!projeResult.Success || !projeResult.Exists)
-                    hatalar.Add($"Proje Kodu '{projeKodu}' Logo'da bulunamadı");
-            }
-            // Malzeme Kodu kontrolü
-            string malzemeKodu = expense.MalzemeListesi ?? "";
-            if (malzemeKodu.Contains("---"))
-                malzemeKodu = malzemeKodu.Split(new[] { "---" }, StringSplitOptions.None)[0].Trim();
-            if (string.IsNullOrWhiteSpace(malzemeKodu))
-                hatalar.Add("Malzeme seçilmemiş");
-            else
-            {
-                var malzemeResult = await BulutERPService.GetMalzemeCardTypeAsync(malzemeKodu);
-                if (!malzemeResult.Success)
-                    hatalar.Add($"Malzeme '{malzemeKodu}' Logo'da yok");
-            }
-            // Toplam Tutar kontrolü
-            if (!expense.SatirToplamTutar.HasValue || expense.SatirToplamTutar.Value <= 0)
-                hatalar.Add("Satır Toplam Tutar sıfır veya boş");
-            // Email kontrolü
-            if (string.IsNullOrWhiteSpace(expense.KayitEdenKullanici))
-                hatalar.Add("Email adresi boş");
-            bool isValid = hatalar.Count == 0;
-            return (isValid, hatalar);
-        }
-        public static async Task<(bool Success, string CariKodu, string ErrorMessage)> GetCariKoduByEmailAsync(string email)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(email))
-                    return (false, null, "Email adresi boş olamaz");
-                var tokenResult = await BulutERPService.EnsureValidTokenAsync();
-                if (!tokenResult.Success)
-                    return (false, null, tokenResult.ErrorMessage);
-                string sqlQuery = $"SELECT CODE FROM U_$V(firm)_ARPS WHERE BOSTATUS<>1 AND UPPER(EMAIL) = UPPER('{email.Replace("'", "''")}')";
-                var result = await BulutERPService.ExecuteSelectQueryAsync(sqlQuery, tokenResult.AccessToken, 1);
-                if (!result.Success)
-                    return (false, null, result.ErrorMessage);
-                if (result.Data == null || result.Data.Count == 0)
-                    return (false, null, $"Logo'da '{email}' email adresli cari bulunamadı. Lütfen Logo'da EMAIL alanını doldurun!");
-                string cariKodu = result.Data[0].ContainsKey("CODE") ? result.Data[0]["CODE"]?.ToString() : null;
-                if (string.IsNullOrWhiteSpace(cariKodu))
-                    return (false, null, "Cari kodu boş geldi");
-                return (true, cariKodu, null);
-            }
-            catch (Exception ex)
-            {
-                await TextLog.LogToSQLiteAsync($"❌ GetCariKoduByEmailAsync hatası: {ex.Message}");
-                return (false, null, ex.Message);
-            }
-        }
         #endregion
 
-        public static async Task<(bool Success, int UpdatedCount, string ErrorMessage)> MarkAsTransferredToLogoAsync(
-            List<long> rowIds)
+
+        public static async Task<(bool Success, int UpdatedCount, string ErrorMessage)> MarkAsTransferredToLogoAsync(List<long> rowIds)
         {
             try
             {
                 if (rowIds == null || rowIds.Count == 0)
                     return (false, 0, "Row ID listesi boş!");
+
                 var tokenResult = await GetApiTokenAsync();
                 if (!tokenResult.Success)
                     return (false, 0, tokenResult.ErrorMessage);
+
                 long logoyaGonderildiColumnId = 4239569086795652;
+
                 var rowsToUpdate = rowIds.Select(rowId => new
                 {
                     id = rowId,
@@ -529,6 +583,7 @@ namespace SmartSheetProject.Classes
                 new { columnId = logoyaGonderildiColumnId, value = true }
             }
                 }).ToList();
+
                 using (HttpClient http = new HttpClient())
                 {
                     http.DefaultRequestHeaders.Add("Authorization", $"Bearer {tokenResult.Token}");
@@ -552,6 +607,7 @@ namespace SmartSheetProject.Classes
                 return (false, 0, ex.Message);
             }
         }
+
 
         #region Cari Vade Bakiye Sheet Operations
         private static readonly long CVB_COL_CARI_KODU = 7906095132266372;

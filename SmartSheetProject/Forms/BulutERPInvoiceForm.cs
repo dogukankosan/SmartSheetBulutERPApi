@@ -101,6 +101,7 @@ namespace SmartSheetProject.Forms
                     return;
                 }
                 var result = await SmartsheetService.GetGroupedApprovedExpensesAsync();
+
                 if (!result.Success)
                 {
                     await TextLog.LogToSQLiteAsync($"❌ BulutERPInvoice - Smartsheet veri çekme hatası: {result.ErrorMessage}");
@@ -122,7 +123,7 @@ namespace SmartSheetProject.Forms
                                 g.FaturaTarihi.Value.Date <= bitis)
                     .ToList();
                 // Her grup için cari kodu çek
-                await LoadCariKodlariAsync();
+         
                 // Logo'da var olan faturaları kontrol et
                 await CheckLogoInvoicesAsync();
                 // Grid'e flat liste olarak yükle
@@ -193,25 +194,7 @@ namespace SmartSheetProject.Forms
                     await TextLog.LogToSQLiteAsync($"⚠️ Logo kontrolü yapılamadı: {grup.FaturaNo} - {checkResult.ErrorMessage}");
             }
         }
-        private async Task LoadCariKodlariAsync()
-        {
-            foreach (GroupedExpenseModel grup in grupluExpenses)
-            {
-                if (string.IsNullOrWhiteSpace(grup.KayitEdenKullanici))
-                {
-                    grup.CariHataMesaji = "Email adresi boş!";
-                    continue;
-                }
-                var result = await SmartsheetService.GetCariKoduByEmailAsync(grup.KayitEdenKullanici);
-                if (result.Success)
-                    grup.CariKodu = result.CariKodu;
-                else
-                {
-                    grup.CariHataMesaji = result.ErrorMessage;
-                    await TextLog.LogToSQLiteAsync($"❌ Cari bulunamadı: {grup.KayitEdenKullanici} - {result.ErrorMessage}");
-                }
-            }
-        }
+
         private void ConfigureColumns()
         {
             var kolonlar = new List<Tuple<string, string, int, int>>
@@ -477,13 +460,13 @@ namespace SmartSheetProject.Forms
                     progressPanel.Description = $"İşleniyor: {grup.LogoReference} ({grup.FaturaNo})";
                     progressForm.Refresh();
                     Application.DoEvents();
-                    // Logo'da var mı kontrolü
+
                     if (logoFaturaNumaralari.Contains(grup.LogoReference))
                     {
                         atlandi++;
                         continue;
                     }
-                    // Hata kontrolü
+
                     if (!string.IsNullOrWhiteSpace(grup.TumHatalar))
                     {
                         hatali++;
@@ -491,31 +474,80 @@ namespace SmartSheetProject.Forms
                         await TextLog.LogToSQLiteAsync($"❌ Atlandı (Hata var): {grup.LogoReference} - {grup.TumHatalar}");
                         continue;
                     }
-                    // Fatura dönüştürme
-                    var convertResult = await BulutERPService.ConvertGroupedExpenseToInvoiceAsync(grup, grup.CariKodu);
-                    if (!convertResult.Success)
+
+                    bool isCreditCard = grup.PaymentType?.Trim() == "Credit Card";
+
+                    if (isCreditCard)
                     {
-                        hatali++;
-                        hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {convertResult.ErrorMessage}");
-                        await TextLog.LogToSQLiteAsync($"❌ Fatura dönüştürme hatası: {grup.LogoReference} - {convertResult.ErrorMessage}");
-                        continue;
-                    }
-                    // Logo'ya gönder
-                    var result = await BulutERPService.CreateInvoiceAsync(convertResult.InvoiceData, convertResult.InvoiceType);
-                    if (result.Success)
-                    {
-                        basarili++;
-                        logoFaturaNumaralari.Add(grup.LogoReference);
-                        var rowIds = grup.Items.Select(i => i.SmartsheetRowId).ToList();
-                        var markResult = await SmartsheetService.MarkAsTransferredToLogoAsync(rowIds);
-                        if (!markResult.Success)
-                            await TextLog.LogToSQLiteAsync($"⚠️ Checkbox güncellenemedi: {grup.LogoReference} - {markResult.ErrorMessage}");
+                        var cariResult = await BulutERPService.GetCariAuxCode5Async(grup.CariKodu);
+                        if (!cariResult.Success)
+                        {
+                            hatali++;
+                            hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): Banka hesabı alınamadı - {cariResult.ErrorMessage}");
+                            continue;
+                        }
+
+                        var convertSlipResult = await BulutERPService.ConvertGroupedExpenseToBankSlipAsync(grup, grup.CariKodu, cariResult.AuxCode5);
+                        if (!convertSlipResult.Success)
+                        {
+                            hatali++;
+                            hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {convertSlipResult.ErrorMessage}");
+                            continue;
+                        }
+
+                        var slipResult = await BulutERPService.CreateBankSlipAsync(convertSlipResult.SlipData);
+                        if (slipResult.Success)
+                        {
+                            basarili++;
+                            logoFaturaNumaralari.Add(grup.LogoReference);
+                            var rowIds = grup.Items.Select(i => i.SmartsheetRowId).Where(id => id > 0).ToList();
+                            if (rowIds.Count > 0)
+                            {
+                                var markResult = await SmartsheetService.MarkAsTransferredToLogoAsync(rowIds);
+                                if (!markResult.Success)
+                                    await TextLog.LogToSQLiteAsync($"⚠️ Checkbox güncellenemedi: {grup.LogoReference} - {markResult.ErrorMessage}");
+                            }
+                            else
+                                await TextLog.LogToSQLiteAsync($"⚠️ SmartsheetRowId bulunamadı, checkbox atlandı: {grup.LogoReference}");
+                        }
+                        else
+                        {
+                            hatali++;
+                            hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {slipResult.ErrorMessage}");
+                            await TextLog.LogToSQLiteAsync($"❌ Logo BankSlip hatası: {grup.LogoReference} - {slipResult.ErrorMessage}");
+                        }
                     }
                     else
                     {
-                        hatali++;
-                        hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {result.ErrorMessage}");
-                        await TextLog.LogToSQLiteAsync($"❌ Logo aktarım hatası: {grup.LogoReference} - {result.ErrorMessage}");
+                        var convertInvoiceResult = await BulutERPService.ConvertGroupedExpenseToInvoiceAsync(grup, grup.CariKodu);
+                        if (!convertInvoiceResult.Success)
+                        {
+                            hatali++;
+                            hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {convertInvoiceResult.ErrorMessage}");
+                            continue;
+                        }
+
+                        var invoiceResult = await BulutERPService.CreateInvoiceAsync(convertInvoiceResult.InvoiceData, convertInvoiceResult.InvoiceType);
+                        if (invoiceResult.Success)
+                        {
+                            basarili++;
+                            logoFaturaNumaralari.Add(grup.LogoReference);
+                            var rowIds = grup.Items.Select(i => i.SmartsheetRowId).Where(id => id > 0).ToList();
+                            if (rowIds.Count > 0)
+                            {
+                                var markResult = await SmartsheetService.MarkAsTransferredToLogoAsync(rowIds);
+                                if (!markResult.Success)
+                                    await TextLog.LogToSQLiteAsync($"⚠️ Checkbox güncellenemedi: {grup.LogoReference} - {markResult.ErrorMessage}");
+                            }
+                            else
+                                await TextLog.LogToSQLiteAsync($"⚠️ SmartsheetRowId bulunamadı, checkbox atlandı: {grup.LogoReference}");
+                        }
+                        else
+                        {
+                            hatali++;
+                            hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {invoiceResult.ErrorMessage}");
+                            await TextLog.LogToSQLiteAsync($"❌ Logo aktarım hatası: {grup.LogoReference} - {invoiceResult.ErrorMessage}");
+                        }
                     }
                 }
                 progressForm.Close();
