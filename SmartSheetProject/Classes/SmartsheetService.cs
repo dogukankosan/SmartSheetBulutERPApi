@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -18,34 +19,88 @@ namespace SmartSheetProject.Classes
         private static readonly long GELIR_SHEET_ID = 4003473281470340;
         private static readonly long EXPENSES_SHEET_ID = 8931463861849988;
         private static readonly long CARI_VADE_SHEET_ID = 2209925892624260;
+        private static readonly long GIDER_ARSIV_SHEET_ID = 3871531886137220;
+        private static readonly long GELIR_ARSIV_SHEET_ID = 6378023126257540;
+        // Proje Sheet'leri
+        private static readonly long ARTURNA_GRID_SHEET_ID = 703720605044612;
+        private static readonly long ARTURNA_WEC_SHEET_ID = 7821528312795012;
+        private static readonly long ARTURNA_WEC2_SHEET_ID = 5078723542863748;
+        private static readonly long BAYIR_MST_SHEET_ID = 4384493619072900;
+        private static readonly long GAIA_GRID_SHEET_ID = 8716758411071364;
+        private static readonly long GAIA_WEC_SHEET_ID = 4469317075685252;
+        private static readonly long GOKTEPE_FA_SHEET_ID = 1611264374558596;
 
         #region Token Management
-        public static async Task<(bool Success, string ErrorMessage)> SaveApiTokenAsync(string apiToken)
+        public static async Task<(bool Success, Dictionary<string, List<string>> KeyMap, string ErrorMessage)>
+        GetGiderTumFaturaKeyMapAsync()
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(apiToken))
-                    return (false, "API Token boş olamaz!");
-                string encryptedToken = EncryptionHelper.Encrypt(apiToken);
-                if (string.IsNullOrWhiteSpace(encryptedToken))
+                var tokenResult = await GetApiTokenAsync();
+                if (!tokenResult.Success)
+                    return (false, null, tokenResult.ErrorMessage);
+                // Sheet adı → (SheetId, CariKoduColId, FaturaNoColId)
+                var sheetTanim = new List<(string Ad, long SheetId, long CariKoduColId, long FaturaNoColId)>
+        {
+            ("Ana Gider",                GIDER_SHEET_ID,       7349303226617732, 6223403319775108),
+            ("Gider Arşiv",              GIDER_ARSIV_SHEET_ID,  682820270509956,  7438219711565700),
+            ("ARTURNA GRID GİDER",       ARTURNA_GRID_SHEET_ID, 7648671772741508,  189584889909124),
+            ("ARTURNA WEC GİDER",        ARTURNA_WEC_SHEET_ID,  4849203499274116, 3723303592431492),
+            ("ARTURNA WEC-2 GİDER",      ARTURNA_WEC2_SHEET_ID, 1650831548256132, 5591481222205316),
+            ("BAYIR MST GİDER",          BAYIR_MST_SHEET_ID,    7486794455355268,  449920037588868),
+            ("GAIA GRID GİDER",          GAIA_GRID_SHEET_ID,    1069474170310532, 6698973704523652),
+            ("GAIA WEC GİDER",           GAIA_WEC_SHEET_ID,     6017958589796228, 3203208822689668),
+            ("GÖKTEPE FA GİDER",         GOKTEPE_FA_SHEET_ID,   6713691752140676, 2315645241036676),
+        };
+                // Hepsini paralel çek
+                var tasks = sheetTanim.Select(async tanim =>
                 {
-                    await TextLog.LogToSQLiteAsync("❌ Token şifreleme hatası");
-                    return (false, "Token şifreleme hatası!");
+                    var keys = new HashSet<string>();
+                    try
+                    {
+                        SmartsheetClient smartsheet = new SmartsheetBuilder()
+                            .SetAccessToken(tokenResult.Token)
+                            .Build();
+                        Sheet sheet = await Task.Run(() =>
+                            smartsheet.SheetResources.GetSheet(tanim.SheetId, null, null, null, null, null, null, null)
+                        );
+                        foreach (var row in sheet.Rows)
+                        {
+                            var cariCell = row.Cells.FirstOrDefault(c => c.ColumnId == tanim.CariKoduColId);
+                            var faturaCell = row.Cells.FirstOrDefault(c => c.ColumnId == tanim.FaturaNoColId);
+                            if (cariCell?.Value != null && faturaCell?.Value != null)
+                            {
+                                string cari = cariCell.Value.ToString().Trim();
+                                string fatura = faturaCell.Value.ToString().Trim();
+                                if (!string.IsNullOrWhiteSpace(cari) && !string.IsNullOrWhiteSpace(fatura))
+                                    keys.Add($"{cari}|{fatura}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        await TextLog.LogToSQLiteAsync($"❌ GetGiderTumFaturaKeyMapAsync - {tanim.Ad} hatası: {ex.Message}");
+                    }
+                    return (tanim.Ad, keys);
+                }).ToList();
+                var results = await Task.WhenAll(tasks);
+                // key → hangi sheet'lerde var
+                var keyMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (ad, keys) in results)
+                {
+                    foreach (var key in keys)
+                    {
+                        if (!keyMap.ContainsKey(key))
+                            keyMap[key] = new List<string>();
+                        keyMap[key].Add(ad);
+                    }
                 }
-                string query = "UPDATE SmartsheetSettings SET ApiToken = @token WHERE Id = 1";
-                Dictionary<string, object> parameters = new Dictionary<string, object>
-                {
-                    { "@token", encryptedToken }
-                };
-                var result = await SQLiteCrud.InsertUpdateDeleteAsync(query, parameters);
-                if (!result.Success)
-                    await TextLog.LogToSQLiteAsync($"❌ API Token kaydetme hatası: {result.ErrorMessage}");
-                return result;
+                return (true, keyMap, null);
             }
             catch (Exception ex)
             {
-                await TextLog.LogToSQLiteAsync($"❌ SaveApiTokenAsync hatası: {ex.Message}");
-                return (false, ex.Message);
+                await TextLog.LogToSQLiteAsync($"❌ GetGiderTumFaturaKeyMapAsync hatası: {ex.Message}");
+                return (false, null, ex.Message);
             }
         }
         public static async Task<(bool Success, string Token, string ErrorMessage)> GetApiTokenAsync()
@@ -78,6 +133,34 @@ namespace SmartSheetProject.Classes
             var result = await GetApiTokenAsync();
             return result.Success && !string.IsNullOrWhiteSpace(result.Token);
         }
+        public static async Task<(bool Success, string ErrorMessage)> SaveApiTokenAsync(string apiToken)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(apiToken))
+                    return (false, "API Token boş olamaz!");
+                string encryptedToken = EncryptionHelper.Encrypt(apiToken);
+                if (string.IsNullOrWhiteSpace(encryptedToken))
+                {
+                    await TextLog.LogToSQLiteAsync("❌ Token şifreleme hatası");
+                    return (false, "Token şifreleme hatası!");
+                }
+                string query = "UPDATE SmartsheetSettings SET ApiToken = @token WHERE Id = 1";
+                Dictionary<string, object> parameters = new Dictionary<string, object>
+        {
+            { "@token", encryptedToken }
+        };
+                var result = await SQLiteCrud.InsertUpdateDeleteAsync(query, parameters);
+                if (!result.Success)
+                    await TextLog.LogToSQLiteAsync($"❌ API Token kaydetme hatası: {result.ErrorMessage}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                await TextLog.LogToSQLiteAsync($"❌ SaveApiTokenAsync hatası: {ex.Message}");
+                return (false, ex.Message);
+            }
+        }
         #endregion
 
         #region Smartsheet SDK Operations
@@ -106,6 +189,86 @@ namespace SmartSheetProject.Classes
             }
         }
         #endregion
+
+        public static async Task<(bool Success, HashSet<string> FaturaKeys, string ErrorMessage)> GetGiderArsivFaturaKeysAsync()
+        {
+            try
+            {
+                var tokenResult = await GetApiTokenAsync();
+                if (!tokenResult.Success)
+                    return (false, null, tokenResult.ErrorMessage);
+                SmartsheetClient smartsheet = new SmartsheetBuilder()
+                    .SetAccessToken(tokenResult.Token)
+                    .Build();
+                Sheet sheet = await Task.Run(() =>
+                    smartsheet.SheetResources.GetSheet(GIDER_ARSIV_SHEET_ID, null, null, null, null, null, null, null)
+                );
+                HashSet<string> faturaKeys = new HashSet<string>();
+                long cariKoduColumnId = 682820270509956;   // Cari Kodu
+                long faturaNoColumnId = 7438219711565700;  // Fatura Numarası
+                foreach (var row in sheet.Rows)
+                {
+                    var cariKoduCell = row.Cells.FirstOrDefault(c => c.ColumnId == cariKoduColumnId);
+                    var faturaNoCell = row.Cells.FirstOrDefault(c => c.ColumnId == faturaNoColumnId);
+                    if (cariKoduCell?.Value != null && faturaNoCell?.Value != null)
+                    {
+                        string cariKodu = cariKoduCell.Value.ToString().Trim();
+                        string faturaNo = faturaNoCell.Value.ToString().Trim();
+                        if (!string.IsNullOrWhiteSpace(cariKodu) && !string.IsNullOrWhiteSpace(faturaNo))
+                        {
+                            string key = $"{cariKodu}|{faturaNo}";
+                            faturaKeys.Add(key);
+                        }
+                    }
+                }
+                return (true, faturaKeys, null);
+            }
+            catch (Exception ex)
+            {
+                await TextLog.LogToSQLiteAsync($"❌ GetGiderArsivFaturaKeysAsync hatası: {ex.Message}");
+                return (false, null, ex.Message);
+            }
+        }
+
+        public static async Task<(bool Success, HashSet<string> FaturaKeys, string ErrorMessage)> GetGelirArsivFaturaKeysAsync()
+        {
+            try
+            {
+                var tokenResult = await GetApiTokenAsync();
+                if (!tokenResult.Success)
+                    return (false, null, tokenResult.ErrorMessage);
+                SmartsheetClient smartsheet = new SmartsheetBuilder()
+                    .SetAccessToken(tokenResult.Token)
+                    .Build();
+                Sheet sheet = await Task.Run(() =>
+                    smartsheet.SheetResources.GetSheet(GELIR_ARSIV_SHEET_ID, null, null, null, null, null, null, null)
+                );
+                HashSet<string> faturaKeys = new HashSet<string>();
+                long cariKoduColumnId = 4701439606345604;   // Cari Kodu
+                long faturaNoColumnId = 3930245659578244;   // Fatura Numarası
+                foreach (var row in sheet.Rows)
+                {
+                    var cariKoduCell = row.Cells.FirstOrDefault(c => c.ColumnId == cariKoduColumnId);
+                    var faturaNoCell = row.Cells.FirstOrDefault(c => c.ColumnId == faturaNoColumnId);
+                    if (cariKoduCell?.Value != null && faturaNoCell?.Value != null)
+                    {
+                        string cariKodu = cariKoduCell.Value.ToString().Trim();
+                        string faturaNo = faturaNoCell.Value.ToString().Trim();
+                        if (!string.IsNullOrWhiteSpace(cariKodu) && !string.IsNullOrWhiteSpace(faturaNo))
+                        {
+                            string key = $"{cariKodu}|{faturaNo}";
+                            faturaKeys.Add(key);
+                        }
+                    }
+                }
+                return (true, faturaKeys, null);
+            }
+            catch (Exception ex)
+            {
+                await TextLog.LogToSQLiteAsync($"❌ GetGelirArsivFaturaKeysAsync hatası: {ex.Message}");
+                return (false, null, ex.Message);
+            }
+        }
 
         #region GİDER Sheet Operations
         private static List<Row> CreateGiderRows(List<GiderFaturaModel> faturalar)
@@ -190,7 +353,20 @@ namespace SmartSheetProject.Classes
                 SmartsheetClient smartsheet = new SmartsheetBuilder()
                     .SetAccessToken(tokenResult.Token)
                     .Build();
-                List<Row> rows = CreateGiderRows(faturalar);
+
+                List<Row> rows;
+                try
+                {
+                    rows = CreateGiderRows(faturalar);
+                }
+                catch (Exception exRow)
+                {
+                    // hangi fatura patlattı görelim
+                    string detay = string.Join(" | ", faturalar.Select(f => $"{f?.CARI_KODU}-{f?.FATURA_NO}"));
+                    await TextLog.LogToSQLiteAsync($"❌ CreateGiderRows hatası: {exRow.GetType().FullName} - {exRow.Message}\nFaturalar: {detay}\nStackTrace: {exRow.StackTrace}");
+                    throw;
+                }
+
                 IList<Row> addedRows = await Task.Run(() =>
                     smartsheet.SheetResources.RowResources.AddRows(GIDER_SHEET_ID, rows)
                 );
@@ -198,7 +374,10 @@ namespace SmartSheetProject.Classes
             }
             catch (Exception ex)
             {
-                await TextLog.LogToSQLiteAsync($"❌ AddMultipleGiderFaturaAsync hatası: {ex.Message}");
+                await TextLog.LogToSQLiteAsync(
+                    $"❌ AddMultipleGiderFaturaAsync hatası: {ex.GetType().FullName} - {ex.Message}\n" +
+                    $"Inner: {ex.InnerException?.GetType().FullName} - {ex.InnerException?.Message}\n" +
+                    $"StackTrace: {ex.StackTrace}");
                 return (false, 0, ex.Message);
             }
         }
@@ -309,9 +488,7 @@ namespace SmartSheetProject.Classes
                 var tokenResult = await GetApiTokenAsync();
                 if (!tokenResult.Success)
                     return (false, null, tokenResult.ErrorMessage);
-
                 List<ExpenseModel> allExpenses = new List<ExpenseModel>();
-
                 long uidColId = 158077037531012;
                 long kayitTarihiColId = 4661676664901508;
                 long kayitEdenColId = 2409876851216260;
@@ -339,16 +516,13 @@ namespace SmartSheetProject.Classes
                     string getUrl = $"https://api.smartsheet.com/2.0/sheets/{EXPENSES_SHEET_ID}";
                     HttpResponseMessage getResponse = await http.GetAsync(getUrl);
                     string getJson = await getResponse.Content.ReadAsStringAsync();
-
                     if (!getResponse.IsSuccessStatusCode)
                     {
                         await TextLog.LogToSQLiteAsync($"❌ Smartsheet sheet çekme hatası: {getJson}");
                         return (false, null, $"Smartsheet sheet çekme hatası: {getResponse.StatusCode}");
                     }
-
                     JObject sheetObj = JObject.Parse(getJson);
                     JArray rows = sheetObj["rows"] as JArray ?? new JArray();
-
                     foreach (var row in rows)
                     {
                         long rowId = row["id"]?.Value<long>() ?? 0;
@@ -357,22 +531,17 @@ namespace SmartSheetProject.Classes
                         {
                             var token = cells.FirstOrDefault(c => c["columnId"]?.Value<long>() == columnId)?["value"];
                             if (token == null) return null;
-
                             if (token.Type == JTokenType.Float || token.Type == JTokenType.Integer)
-                                return token.Value<double>().ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-                            // String ise virgülü noktaya çevir
+                                return token.Value<double>().ToString(CultureInfo.InvariantCulture);
                             return token.ToString().Replace(",", ".");
                         }
                         string muhasebeOnay = GetCellValue(muhasebeOnayColId);
                         string yoneticiOnay = GetCellValue(yoneticiOnayColId);
                         string supervisorOnay = GetCellValue(supervisorApprovalColId);
-
                         if (muhasebeOnay == "Rejected" || yoneticiOnay == "Rejected" || supervisorOnay == "Rejected")
                             continue;
                         if (muhasebeOnay != "Approved" || yoneticiOnay != "Approved" || supervisorOnay != "Approved")
                             continue;
-
                         ExpenseModel expense = new ExpenseModel
                         {
                             SmartsheetRowId = rowId,
@@ -388,30 +557,27 @@ namespace SmartSheetProject.Classes
                             MuhasebeOnay = muhasebeOnay,
                             SupervisorApproval = supervisorOnay,
                             YoneticiOnay = yoneticiOnay,
-                            LogoReference = GetCellValue(logoRefColId)  ,
-                            PaymentType = GetCellValue(paymentTypeColId)  // ← EKLENDİ
+                            LogoReference = GetCellValue(logoRefColId),
+                            PaymentType = GetCellValue(paymentTypeColId)
                         };
-
                         if (DateTime.TryParse(GetCellValue(kayitTarihiColId), out DateTime kayitTarihi))
                             expense.KayitTarihi = kayitTarihi;
                         if (DateTime.TryParse(GetCellValue(faturaTarihiColId), out DateTime faturaTarihi))
                             expense.FaturaTarihi = faturaTarihi;
-                        if (decimal.TryParse(GetCellValue(amountColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal amount))
+                        if (decimal.TryParse(GetCellValue(amountColId), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal amount))
                             expense.Amount = amount;
-                        if (decimal.TryParse(GetCellValue(kdvOraniColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal kdvOrani))
+                        if (decimal.TryParse(GetCellValue(kdvOraniColId), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal kdvOrani))
                             expense.KDVOrani = kdvOrani;
-                        if (decimal.TryParse(GetCellValue(birimFiyatColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal birimFiyat))
+                        if (decimal.TryParse(GetCellValue(birimFiyatColId), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal birimFiyat))
                             expense.BirimFiyat = birimFiyat;
-                        if (decimal.TryParse(GetCellValue(satirToplamColId), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal satirToplam))
+                        if (decimal.TryParse(GetCellValue(satirToplamColId), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal satirToplam))
                             expense.SatirToplamTutar = satirToplam;
 
                         string archiveVal = GetCellValue(archiveColId);
                         expense.Archive = archiveVal?.ToLower() == "true";
-
                         allExpenses.Add(expense);
                     }
                 }
-
                 // GRUPLAMA
                 var grouped = allExpenses
                     .GroupBy(e => e.LogoReference?.Trim() ?? "")
@@ -425,22 +591,20 @@ namespace SmartSheetProject.Classes
                         SirketAdi = g.First().SirketAdi,
                         ProjeKodu = g.First().ProjeKodu,
                         DovizTuru = g.First().DovizTuru,
-                        PaymentType = g.First().PaymentType,  // ← EKLENDİ
+                        PaymentType = g.First().PaymentType,
                         Items = g.ToList(),
                         ToplamTutar = g.Sum(x => x.SatirToplamTutar ?? 0)
                     })
                     .ToList();
-
                 // ── BULK EMAIL → CARİ KODU ────────────────────────────────────────
                 List<string> emailler = grouped
                     .Select(g => g.KayitEdenKullanici?.Trim() ?? "")
                     .Where(e => !string.IsNullOrWhiteSpace(e))
                     .Distinct()
                     .ToList();
-
-                Dictionary<string, (string CariKodu, string Doviz)> emailCariMap =
-                    new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
-
+                // ← GÜNCELLENEN KISIM: List<(CariKodu, Doviz)> ile çoklu cari desteği
+                Dictionary<string, List<(string CariKodu, string Doviz)>> emailCariMap =
+                    new Dictionary<string, List<(string CariKodu, string Doviz)>>(StringComparer.OrdinalIgnoreCase);
                 if (emailler.Count > 0)
                 {
                     var bulkCari = await BulutERPService.GetCariKodulariBulkAsync(emailler);
@@ -449,7 +613,6 @@ namespace SmartSheetProject.Classes
                     else
                         await TextLog.LogToSQLiteAsync($"❌ Bulk cari sorgusu hatası: {bulkCari.ErrorMessage}");
                 }
-
                 // ── BULK MALZEME SORGUSU ──────────────────────────────────────────
                 List<string> malzemeKodlari = grouped
                     .SelectMany(g => g.Items)
@@ -462,7 +625,6 @@ namespace SmartSheetProject.Classes
                     .Where(k => !string.IsNullOrWhiteSpace(k))
                     .Distinct()
                     .ToList();
-
                 Dictionary<string, int> malzemeMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 if (malzemeKodlari.Count > 0)
                 {
@@ -472,14 +634,12 @@ namespace SmartSheetProject.Classes
                     else
                         await TextLog.LogToSQLiteAsync($"❌ Bulk malzeme sorgusu hatası: {bulkMalzeme.ErrorMessage}");
                 }
-
                 // ── BULK PROJE KODU SORGUSU ───────────────────────────────────────
                 List<string> projeKodlari = grouped
                     .Select(g => g.ProjeKodu?.Trim() ?? "")
                     .Where(p => !string.IsNullOrWhiteSpace(p))
                     .Distinct()
                     .ToList();
-
                 HashSet<string> gecerliProjeler = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 if (projeKodlari.Count > 0)
                 {
@@ -489,68 +649,44 @@ namespace SmartSheetProject.Classes
                     else
                         await TextLog.LogToSQLiteAsync($"❌ Bulk proje kodu sorgusu hatası: {bulkProje.ErrorMessage}");
                 }
-
                 // ── VALİDASYON ────────────────────────────────────────────────────
                 foreach (GroupedExpenseModel grup in grouped)
                 {
                     HashSet<string> malzemeHatalari = new HashSet<string>();
-
                     if (string.IsNullOrWhiteSpace(grup.LogoReference))
                         malzemeHatalari.Add("LOGO Accounting Reference # boş - bu satırlar hangi fişe ait bilinemiyor");
-
-                    // Cari kodu ve döviz eşleşme kontrolü
                     string email = grup.KayitEdenKullanici?.Trim() ?? "";
                     if (string.IsNullOrWhiteSpace(email))
-                    {
                         malzemeHatalari.Add("Email adresi boş!");
-                    }
-                    else if (emailCariMap.TryGetValue(email, out var cariInfo))
+                    else if (emailCariMap.TryGetValue(email, out var cariListesi))
                     {
                         string smartsheetDoviz = grup.DovizTuru?.Trim().ToUpper() ?? "TRY";
-                        string cariDoviz = cariInfo.Doviz;
-
-                        bool eslesme = false;
-                        if (smartsheetDoviz == "TRY" && cariDoviz == "TRY")
-                            eslesme = true;
-                        else if (smartsheetDoviz == "USD" && cariDoviz == "USD")
-                            eslesme = true;
-                        else if (smartsheetDoviz == "EURO" && cariDoviz == "EURO")
-                            eslesme = true;
-
-                        if (eslesme)
+                        var eslesenCari = cariListesi.FirstOrDefault(c => c.Doviz == smartsheetDoviz);
+                        if (eslesenCari.CariKodu != null)
                         {
-                            grup.CariKodu = cariInfo.CariKodu;
-                            grup.CariDoviz = cariDoviz;
+                            grup.CariKodu = eslesenCari.CariKodu;
+                            grup.CariDoviz = eslesenCari.Doviz;
                         }
                         else
-                            malzemeHatalari.Add($"Fatura dövizi '{smartsheetDoviz}' ile cari dövizi '{cariDoviz}' uyuşmuyor! Lütfen Logo'da doğru cari kartını kullanın.");
+                            malzemeHatalari.Add($"Fatura dövizi '{smartsheetDoviz}' ile eşleşen cari bulunamadı!");
                     }
                     else
-                    {
                         malzemeHatalari.Add($"Logo'da '{email}' email adresli cari bulunamadı. Lütfen Logo'da EMAIL alanını doldurun!");
-                    }
-
-                    // Proje kodu kontrolü
                     string projeKodu = grup.ProjeKodu?.Trim() ?? "";
                     if (!string.IsNullOrWhiteSpace(projeKodu) && !gecerliProjeler.Contains(projeKodu))
                         malzemeHatalari.Add($"Proje Kodu '{projeKodu}' Logo'da bulunamadı");
-
-                    // Malzeme kontrolleri
                     foreach (ExpenseModel item in grup.Items)
                     {
                         string malzemeKodu = item.MalzemeListesi ?? "";
                         if (malzemeKodu.Contains("---"))
                             malzemeKodu = malzemeKodu.Split(new[] { "---" }, StringSplitOptions.None)[0].Trim();
-
                         if (string.IsNullOrWhiteSpace(malzemeKodu))
                             malzemeHatalari.Add("Malzeme seçilmemiş");
                         else if (!malzemeMap.ContainsKey(malzemeKodu))
                             malzemeHatalari.Add($"Malzeme '{malzemeKodu}' Logo'da yok");
                     }
-
                     grup.MalzemeHatalari = malzemeHatalari.ToList();
                 }
-
                 return (true, grouped, null);
             }
             catch (Exception ex)
@@ -561,20 +697,16 @@ namespace SmartSheetProject.Classes
         }
         #endregion
 
-
         public static async Task<(bool Success, int UpdatedCount, string ErrorMessage)> MarkAsTransferredToLogoAsync(List<long> rowIds)
         {
             try
             {
                 if (rowIds == null || rowIds.Count == 0)
                     return (false, 0, "Row ID listesi boş!");
-
                 var tokenResult = await GetApiTokenAsync();
                 if (!tokenResult.Success)
                     return (false, 0, tokenResult.ErrorMessage);
-
                 long logoyaGonderildiColumnId = 4239569086795652;
-
                 var rowsToUpdate = rowIds.Select(rowId => new
                 {
                     id = rowId,
@@ -583,7 +715,6 @@ namespace SmartSheetProject.Classes
                 new { columnId = logoyaGonderildiColumnId, value = true }
             }
                 }).ToList();
-
                 using (HttpClient http = new HttpClient())
                 {
                     http.DefaultRequestHeaders.Add("Authorization", $"Bearer {tokenResult.Token}");
@@ -607,7 +738,6 @@ namespace SmartSheetProject.Classes
                 return (false, 0, ex.Message);
             }
         }
-
 
         #region Cari Vade Bakiye Sheet Operations
         private static readonly long CVB_COL_CARI_KODU = 7906095132266372;
@@ -749,11 +879,11 @@ namespace SmartSheetProject.Classes
         private static decimal ToDecimal(object val)
         {
             if (val == null) return 0m;
-            try { return Convert.ToDecimal(val, System.Globalization.CultureInfo.InvariantCulture); }
+            try { return Convert.ToDecimal(val, CultureInfo.InvariantCulture); }
             catch
             {
-                return decimal.TryParse(val.ToString(), System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out decimal d) ? d : 0m;
+                return decimal.TryParse(val.ToString(), NumberStyles.Any,
+                    CultureInfo.InvariantCulture, out decimal d) ? d : 0m;
             }
         }
         #endregion

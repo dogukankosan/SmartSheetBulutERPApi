@@ -101,7 +101,6 @@ namespace SmartSheetProject.Forms
                     return;
                 }
                 var result = await SmartsheetService.GetGroupedApprovedExpensesAsync();
-
                 if (!result.Success)
                 {
                     await TextLog.LogToSQLiteAsync($"❌ BulutERPInvoice - Smartsheet veri çekme hatası: {result.ErrorMessage}");
@@ -122,8 +121,7 @@ namespace SmartSheetProject.Forms
                                 g.FaturaTarihi.Value.Date >= baslangic &&
                                 g.FaturaTarihi.Value.Date <= bitis)
                     .ToList();
-                // Her grup için cari kodu çek
-         
+                // Her grup için cari kodu çek 
                 // Logo'da var olan faturaları kontrol et
                 await CheckLogoInvoicesAsync();
                 // Grid'e flat liste olarak yükle
@@ -194,7 +192,6 @@ namespace SmartSheetProject.Forms
                     await TextLog.LogToSQLiteAsync($"⚠️ Logo kontrolü yapılamadı: {grup.FaturaNo} - {checkResult.ErrorMessage}");
             }
         }
-
         private void ConfigureColumns()
         {
             var kolonlar = new List<Tuple<string, string, int, int>>
@@ -460,13 +457,11 @@ namespace SmartSheetProject.Forms
                     progressPanel.Description = $"İşleniyor: {grup.LogoReference} ({grup.FaturaNo})";
                     progressForm.Refresh();
                     Application.DoEvents();
-
                     if (logoFaturaNumaralari.Contains(grup.LogoReference))
                     {
                         atlandi++;
                         continue;
                     }
-
                     if (!string.IsNullOrWhiteSpace(grup.TumHatalar))
                     {
                         hatali++;
@@ -474,9 +469,7 @@ namespace SmartSheetProject.Forms
                         await TextLog.LogToSQLiteAsync($"❌ Atlandı (Hata var): {grup.LogoReference} - {grup.TumHatalar}");
                         continue;
                     }
-
                     bool isCreditCard = grup.PaymentType?.Trim() == "Credit Card";
-
                     if (isCreditCard)
                     {
                         var cariResult = await BulutERPService.GetCariAuxCode5Async(grup.CariKodu);
@@ -486,7 +479,6 @@ namespace SmartSheetProject.Forms
                             hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): Banka hesabı alınamadı - {cariResult.ErrorMessage}");
                             continue;
                         }
-
                         var convertSlipResult = await BulutERPService.ConvertGroupedExpenseToBankSlipAsync(grup, grup.CariKodu, cariResult.AuxCode5);
                         if (!convertSlipResult.Success)
                         {
@@ -494,7 +486,6 @@ namespace SmartSheetProject.Forms
                             hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {convertSlipResult.ErrorMessage}");
                             continue;
                         }
-
                         var slipResult = await BulutERPService.CreateBankSlipAsync(convertSlipResult.SlipData);
                         if (slipResult.Success)
                         {
@@ -526,7 +517,6 @@ namespace SmartSheetProject.Forms
                             hataMesajlari.Add($"{grup.LogoReference} ({grup.FaturaNo}): {convertInvoiceResult.ErrorMessage}");
                             continue;
                         }
-
                         var invoiceResult = await BulutERPService.CreateInvoiceAsync(convertInvoiceResult.InvoiceData, convertInvoiceResult.InvoiceType);
                         if (invoiceResult.Success)
                         {

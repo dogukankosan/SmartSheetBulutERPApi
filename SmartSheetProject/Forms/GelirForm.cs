@@ -17,21 +17,14 @@ namespace SmartSheetProject.Forms
     {
         private List<GelirFaturaModel> tumFaturalar = new List<GelirFaturaModel>();
         private HashSet<string> sheetFaturaKeys = new HashSet<string>();
-        private Timer sheetCheckTimer;
+
         public GelirForm()
         {
             InitializeComponent();
-            InitializeTimer();
         }
         private string CreateFaturaKey(string cariKodu, string faturaNo)
         {
             return $"{cariKodu?.Trim() ?? ""}|{faturaNo?.Trim() ?? ""}";
-        }
-        private void InitializeTimer()
-        {
-            sheetCheckTimer = new System.Windows.Forms.Timer();
-            sheetCheckTimer.Interval = 30000;
-            sheetCheckTimer.Tick += async (s, e) => await LoadSheetFaturaKeysAsync();
         }
         private async void GelirForm_Load(object sender, EventArgs e)
         {
@@ -64,14 +57,11 @@ namespace SmartSheetProject.Forms
                 ConfigureGrid();
                 dateBaslangic.EditValue = DateTime.Now.Date;
                 dateBitis.EditValue = DateTime.Now.Date;
-                dateBaslangic.EditValueChanged += DateEdit_Changed;
-                dateBitis.EditValueChanged += DateEdit_Changed;
                 btnFiltrele.Click += BtnFiltrele_Click;
                 btnYenile.ItemClick += BtnYenile_ItemClick;
                 btnExcel.ItemClick += BtnExcel_ItemClick;
                 gridView1.RowStyle += GridView1_RowStyle;
                 gridView1.ColumnFilterChanged += (s, ev) => gridView1.RefreshData();
-                sheetCheckTimer.Start();
                //  await LoadDataAsync();
             }
             catch (Exception ex)
@@ -80,10 +70,6 @@ namespace SmartSheetProject.Forms
                 XtraMessageBox.Show($"Form yüklenirken hata oluştu:\n{ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 this.Close();
             }
-        }
-        private async void DateEdit_Changed(object sender, EventArgs e)
-        {
-            await LoadDataAsync();
         }
         private void ConfigureGrid()
         {
@@ -144,16 +130,20 @@ namespace SmartSheetProject.Forms
         {
             try
             {
-                sheetFaturaKeys.Clear();
-                var result = await SmartsheetService.GetGelirFaturaKeysAsync();
-                if (result.Success && result.FaturaKeys != null)
-                {
-                    sheetFaturaKeys = result.FaturaKeys;
-                    if (gridView1 != null)
-                        gridView1.RefreshData();
-                }
+                var gelirResult = await SmartsheetService.GetGelirFaturaKeysAsync();
+                var arsivResult = await SmartsheetService.GetGelirArsivFaturaKeysAsync();
+                HashSet<string> birlesikKeys = new HashSet<string>();
+                if (gelirResult.Success && gelirResult.FaturaKeys != null)
+                    birlesikKeys.UnionWith(gelirResult.FaturaKeys);
                 else
-                    await TextLog.LogToSQLiteAsync($"❌ GelirForm - Sheet fatura key çekme hatası: {result.ErrorMessage}");
+                    await TextLog.LogToSQLiteAsync($"❌ GelirForm - Gelir sheet key çekme hatası: {gelirResult.ErrorMessage}");
+                if (arsivResult.Success && arsivResult.FaturaKeys != null)
+                    birlesikKeys.UnionWith(arsivResult.FaturaKeys);
+                else
+                    await TextLog.LogToSQLiteAsync($"❌ GelirForm - Arşiv sheet key çekme hatası: {arsivResult.ErrorMessage}");
+                sheetFaturaKeys = birlesikKeys;
+                if (gridView1 != null)
+                    gridView1.RefreshData();
             }
             catch (Exception ex)
             {
@@ -397,11 +387,6 @@ namespace SmartSheetProject.Forms
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
-            if (sheetCheckTimer != null)
-            {
-                sheetCheckTimer.Stop();
-                sheetCheckTimer.Dispose();
-            }
         }
         private void GelirForm_KeyDown(object sender, KeyEventArgs e)
         {

@@ -20,5 +20,6 @@ namespace SmartSheetProject.Models
         public decimal FATURA_TOPLAM_TUTAR_ID { get; set; }
         public string FATURA_ACIKLAMASI { get; set; }
         public string MALZEME_BILGILERI { get; set; }
+        public string KAYNAK_SHEET { get; set; }
     }
 }

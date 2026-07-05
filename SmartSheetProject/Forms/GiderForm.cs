@@ -16,22 +16,16 @@ namespace SmartSheetProject.Forms
     public partial class GiderForm : XtraForm
     {
         private List<GiderFaturaModel> tumFaturalar = new List<GiderFaturaModel>();
-        private HashSet<string> sheetFaturaKeys = new HashSet<string>();
-        private Timer sheetCheckTimer;
+        private Dictionary<string, List<string>> faturaKeyMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
         public GiderForm()
         {
             InitializeComponent();
-            InitializeTimer();
+       
         }
         private string CreateFaturaKey(string cariKodu, string faturaNo)
         {
             return $"{cariKodu?.Trim() ?? ""}|{faturaNo?.Trim() ?? ""}";
-        }
-        private void InitializeTimer()
-        {
-            sheetCheckTimer = new System.Windows.Forms.Timer();
-            sheetCheckTimer.Interval = 30000;
-            sheetCheckTimer.Tick += async (s, e) => await LoadSheetFaturaKeysAsync();
         }
         private async void GiderForm_Load(object sender, EventArgs e)
         {
@@ -64,14 +58,12 @@ namespace SmartSheetProject.Forms
                 ConfigureGrid();
                 dateBaslangic.EditValue = DateTime.Now.Date;
                 dateBitis.EditValue = DateTime.Now.Date;
-                dateBaslangic.EditValueChanged += DateEdit_Changed;
-                dateBitis.EditValueChanged += DateEdit_Changed;
                 btnFiltrele.Click += BtnFiltrele_Click;
                 btnYenile.ItemClick += BtnYenile_ItemClick;
                 btnExcel.ItemClick += BtnExcel_ItemClick;
                 gridView1.RowStyle += GridView1_RowStyle;
-               gridView1.ColumnFilterChanged += (s, ev) => gridView1.RefreshData();
-                sheetCheckTimer.Start();
+          
+         
               //   await LoadDataAsync();
             }
             catch (Exception ex)
@@ -80,10 +72,6 @@ namespace SmartSheetProject.Forms
                 XtraMessageBox.Show($"Form yüklenirken hata oluştu:\n{ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 this.Close();
             }
-        }
-        private async void DateEdit_Changed(object sender, EventArgs e)
-        {
-            await LoadDataAsync();
         }
         private void ConfigureGrid()
         {
@@ -102,7 +90,7 @@ namespace SmartSheetProject.Forms
             {
                 this.Cursor = Cursors.WaitCursor;
                 gridControl1.DataSource = null;
-                await LoadSheetFaturaKeysAsync();
+
                 var tokenResult = await BulutERPService.EnsureValidTokenAsync();
                 if (!tokenResult.Success)
                 {
@@ -124,8 +112,9 @@ namespace SmartSheetProject.Forms
                     XtraMessageBox.Show($"Veri çekilirken hata oluştu:\n{result.ErrorMessage}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
-                tumFaturalar = ConvertToModel(result.Data);
-                gridControl1.DataSource = tumFaturalar;
+                tumFaturalar = ConvertToModel(result.Data);  // ← önce model dolu
+                await LoadSheetFaturaKeysAsync();             // ← sonra sheet sorgusu (KAYNAK_SHEET yazılır)
+                gridControl1.DataSource = tumFaturalar;       // ← en son grid bağlanır
                 ConfigureColumns();
                 SetFooterTotals();
                 gridView1.BestFitColumns();
@@ -144,16 +133,29 @@ namespace SmartSheetProject.Forms
         {
             try
             {
-                sheetFaturaKeys.Clear();
-                var result = await SmartsheetService.GetGiderFaturaKeysAsync();
-                if (result.Success && result.FaturaKeys != null)
+                var result = await SmartsheetService.GetGiderTumFaturaKeyMapAsync();
+                if (result.Success && result.KeyMap != null)
                 {
-                    sheetFaturaKeys = result.FaturaKeys;
+                    faturaKeyMap = result.KeyMap;
+
+                    // KAYNAK_SHEET'i modele yaz
+                    if (tumFaturalar != null)
+                    {
+                        foreach (var fatura in tumFaturalar)
+                        {
+                            string key = CreateFaturaKey(fatura.CARI_KODU, fatura.FATURA_NO);
+                            if (faturaKeyMap.TryGetValue(key, out var sheetler))
+                                fatura.KAYNAK_SHEET = string.Join(", ", sheetler);
+                            else
+                                fatura.KAYNAK_SHEET = "";
+                        }
+                    }
+
                     if (gridView1 != null)
                         gridView1.RefreshData();
                 }
                 else
-                    await TextLog.LogToSQLiteAsync($"❌ GiderForm - Sheet fatura key çekme hatası: {result.ErrorMessage}");
+                    await TextLog.LogToSQLiteAsync($"❌ GiderForm - Key map çekme hatası: {result.ErrorMessage}");
             }
             catch (Exception ex)
             {
@@ -168,7 +170,7 @@ namespace SmartSheetProject.Forms
                 if (fatura != null)
                 {
                     string key = CreateFaturaKey(fatura.CARI_KODU, fatura.FATURA_NO);
-                    if (sheetFaturaKeys.Contains(key))
+                    if (faturaKeyMap.ContainsKey(key))
                     {
                         e.Appearance.BackColor = Color.LightGreen;
                         e.Appearance.ForeColor = Color.Black;
@@ -235,7 +237,8 @@ namespace SmartSheetProject.Forms
                 ("FATURA_TOPLAM_TUTAR_TL", "Toplam (TL)", 12, 120),
                 ("FATURA_TOPLAM_TUTAR_ID", "Toplam (ID)", 13, 120),
                 ("FATURA_ACIKLAMASI", "Fatura Açıklaması", 14, 250),
-                ("MALZEME_BILGILERI", "Malzeme Bilgileri", 15, 400)
+                ("MALZEME_BILGILERI", "Malzeme Bilgileri", 15, 400),
+                ("KAYNAK_SHEET", "Kaynak Sheet", 16, 300)
             };
             foreach (var kolon in kolonlar)
             {
@@ -336,7 +339,7 @@ namespace SmartSheetProject.Forms
                     if (fatura != null)
                     {
                         string key = CreateFaturaKey(fatura.CARI_KODU, fatura.FATURA_NO);
-                        if (sheetFaturaKeys.Contains(key))
+                        if (faturaKeyMap.ContainsKey(key))
                             varOlanFaturalar.Add($"{fatura.CARI_KODU} - {fatura.FATURA_NO}");
                         else
                             secilifaturalar.Add(fatura);
@@ -386,7 +389,10 @@ namespace SmartSheetProject.Forms
             }
             catch (Exception ex)
             {
-                await TextLog.LogToSQLiteAsync($"❌ GiderForm btn_Aktar_Click hatası: {ex.Message}");
+                await TextLog.LogToSQLiteAsync(
+                 $"❌ GiderForm aktarım hatası: {ex.GetType().FullName} - {ex.Message}\n" +
+                 $"Inner: {ex.InnerException?.GetType().FullName} - {ex.InnerException?.Message}\n" +
+                 $"StackTrace: {ex.StackTrace}");
                 XtraMessageBox.Show($"Aktarım hatası:\n{ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -398,11 +404,7 @@ namespace SmartSheetProject.Forms
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
-            if (sheetCheckTimer != null)
-            {
-                sheetCheckTimer.Stop();
-                sheetCheckTimer.Dispose();
-            }
+        
         }
         private void GiderForm_KeyDown(object sender, KeyEventArgs e)
         {
